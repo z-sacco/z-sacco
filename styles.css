@@ -93,6 +93,25 @@ svg {
   grid-template-columns: var(--sidebar) 1fr;
 }
 
+/* Keep admin navigation and workspace scrolling independent on desktop. */
+.app-frame:not(.login-mode) {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-frame:not(.login-mode) .sidebar,
+.app-frame:not(.login-mode) .main-shell {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.app-frame:not(.login-mode) .sidebar {
+  scrollbar-gutter: stable;
+}
+
 .sidebar {
   background: linear-gradient(180deg, #080706 0%, #15110a 100%);
   color: #eaf1fb;
