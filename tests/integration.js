@@ -57,6 +57,8 @@ async function waitForServer() {
   const memberData = await request("/api/app-data", { token: memberLogin.token });
   assert.equal(memberData.members.length, 1, "Members can only view their own data");
   assert.equal(memberData.summary.totalSavings, 200000);
+  assert.ok(memberData.transactions.every((item) => item.memberId === member.id), "Members only receive their own transactions");
+  assert.ok(memberData.loans.every((item) => item.memberId === member.id), "Members only receive their own loans");
   assert.equal(registration.sacco.name, "Test Cooperative");
   console.log("Integration checks passed: registration, auth, members, accounts, transactions, loans, persistence, and member scoping.");
 })().catch((error) => {

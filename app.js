@@ -37,7 +37,6 @@ const memberNavItems = [
   ["memberSavings", "Savings", icons.wallet],
   ["memberLoans", "Loans", icons.loan],
   ["memberProfile", "Profile", icons.user],
-  ["memberLogin", "Login", icons.lock],
 ];
 
 let members = [
@@ -462,36 +461,61 @@ const adminScreens = {
   adminLogin: () => authScreen("admin"),
 };
 
+function memberPortalRecords() {
+  const userId = String(currentSessionUser?.id || "");
+  const memberNumber = String(currentSessionUser?.memberNumber || currentSessionUser?.memberId || "");
+  const member = memberRecords.find((item) => (userId && String(item.id) === userId) || (memberNumber && String(item.memberNumber) === memberNumber)) || null;
+  if (!member) return { member: {}, accounts: [], transactions: [], loans: [] };
+  const accounts = accountRecords.filter((item) => String(item.memberId) === String(member.id));
+  const accountIds = new Set(accounts.map((item) => String(item.id)));
+  const transactions = transactionRecords.filter((item) => String(item.memberId) === String(member.id) || accountIds.has(String(item.accountId)));
+  const loans = loanRecords.filter((item) => String(item.memberId) === String(member.id));
+  return { member, accounts, transactions, loans };
+}
+
+function memberTransactionRows(records) {
+  return records.map((item) => rowWithRecord([
+    item.reference,
+    item.transactionType,
+    formatUGX(item.amount || 0),
+    formatDate(item.date),
+    item.status || "Completed",
+  ], item));
+}
+
 function memberDashboard() {
-  const member = memberRecords[0] || {};
-  const savings = accountRecords.reduce((sum, account) => sum + Number(account.balance || 0), 0);
-  const loan = loanRecords.find((item) => String(item.status || "").toLowerCase() !== "rejected") || {};
+  const { member, accounts, transactions: memberTransactions, loans } = memberPortalRecords();
+  const transactionRows = memberTransactionRows(memberTransactions);
+  const savings = accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0);
+  const loan = loans.find((item) => String(item.status || "").toLowerCase() !== "rejected") || {};
   const outstanding = Number(loan.requestedAmount || 0) * (1 - (Number(loan.progressPercent || 0) / 100));
   return `<div class="screen">
     <section class="grid stats-grid">
-      ${moneyStat("SACCO Members", Number(appSummary.totalMembers || memberRecords.length).toLocaleString(), liveSacco?.name || "Your SACCO", icons.users)}
-      ${moneyStat("SACCO Savings", formatUGX(appSummary.totalSavings || 0, true), "Total cooperative savings", icons.wallet)}
-      ${moneyStat("Active Loans", Number(appSummary.activeLoans || loanRecords.length).toLocaleString(), "Across the SACCO", icons.loan)}
-      ${moneyStat("Transactions", Number(appSummary.totalTransactions || transactionRecords.length).toLocaleString(), "Recorded activity", icons.receipt)}
+      ${moneyStat("My Savings", formatUGX(savings, true), "Across my accounts", icons.wallet)}
+      ${moneyStat("My Accounts", accounts.length.toLocaleString(), "Active member accounts", icons.wallet)}
+      ${moneyStat("My Active Loans", loans.filter((item) => !["rejected", "closed"].includes(String(item.status || "").toLowerCase())).length.toLocaleString(), "Personal loan portfolio", icons.loan)}
+      ${moneyStat("My Transactions", memberTransactions.length.toLocaleString(), "Personal activity", icons.receipt)}
     </section>
     <section class="portal-hero">
       <article class="portal-card balance-card">
         <p class="eyebrow">Available savings</p><div class="amount-xl">${formatUGX(savings)}</div>
-        <div class="quick-grid"><div class="quick-card"><p class="muted">Accounts</p><strong>${accountRecords.length}</strong></div><div class="quick-card"><p class="muted">Loan balance</p><strong>${formatUGX(outstanding)}</strong></div><div class="quick-card"><p class="muted">Next payment</p><strong>${loan.nextDue ? formatDate(loan.nextDue) : "N/A"}</strong></div></div>
+        <div class="quick-grid"><div class="quick-card"><p class="muted">Accounts</p><strong>${accounts.length}</strong></div><div class="quick-card"><p class="muted">Loan balance</p><strong>${formatUGX(outstanding)}</strong></div><div class="quick-card"><p class="muted">Next payment</p><strong>${loan.nextDue ? formatDate(loan.nextDue) : "N/A"}</strong></div></div>
       </article>
-      <article class="portal-card"><div class="card-title"><h2>Quick Summary</h2><span class="pill success">Good standing</span></div><div class="activity">${transactions.slice(0, 2).map((row) => `<div class="activity-item"><span class="status-dot"></span><div><strong>${row[2]}</strong><br><small>${row[3]} - ${row[4]}</small></div></div>`).join("") || '<div class="empty-state">No member activity yet.</div>'}<div class="activity-item"><span class="status-dot warn"></span><div><strong>Next repayment</strong><br><small>${loan.nextDue ? formatDate(loan.nextDue) : "No repayment scheduled"}</small></div></div></div></article>
+      <article class="portal-card"><div class="card-title"><h2>My Activity</h2><span class="pill success">Private</span></div><div class="activity">${transactionRows.slice(0, 2).map((row) => `<div class="activity-item"><span class="status-dot"></span><div><strong>${row[1]}</strong><br><small>${row[2]} - ${row[3]}</small></div></div>`).join("") || '<div class="empty-state">No activity yet.</div>'}<div class="activity-item"><span class="status-dot warn"></span><div><strong>Next repayment</strong><br><small>${loan.nextDue ? formatDate(loan.nextDue) : "No repayment scheduled"}</small></div></div></div></article>
     </section>
-    <section class="grid two-col"><article class="table-card"><div class="table-head"><h2 class="section-title">Recent Savings Transactions</h2></div>${renderTable(["Ref", "Member", "Type", "Amount", "Date", "Status"], transactions.slice(0, 3), "View")}</article><article class="portal-card"><div class="card-title"><h2>Loan Balance</h2></div><div class="progress"><span style="width:${loan.progressPercent || 0}%"></span></div><p class="muted">${formatUGX(outstanding)} remaining on ${loan.product || "current"} loan for ${member.name || "member"}.</p></article></section>
+    <section class="grid two-col"><article class="table-card"><div class="table-head"><h2 class="section-title">My Recent Transactions</h2></div>${renderTable(["Ref", "Type", "Amount", "Date", "Status"], transactionRows.slice(0, 3), "View")}</article><article class="portal-card"><div class="card-title"><h2>My Loan Balance</h2></div><div class="progress"><span style="width:${loan.progressPercent || 0}%"></span></div><p class="muted">${formatUGX(outstanding)} remaining on ${loan.product || "current"} loan.</p></article></section>
   </div>`;
 }
 
 function memberSavings() {
-  const savings = accountRecords.reduce((sum, account) => sum + Number(account.balance || 0), 0);
-  return `<div class="screen"><article class="portal-card balance-card"><p class="eyebrow">Savings balance</p><div class="amount-xl">${formatUGX(savings)}</div><div class="split-actions"><button class="ghost-button" data-download="member-statement">Download statement</button><button class="ghost-button" data-support>Request support</button></div></article><article class="table-card"><div class="table-head"><h2 class="section-title">Transaction History</h2>${toolbar("Search savings history", ["Date", "Type"])}</div>${renderTable(["Ref", "Member", "Type", "Amount", "Date", "Status"], transactions, "Details")}</article></div>`;
+  const { accounts, transactions: memberTransactions } = memberPortalRecords();
+  const savings = accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0);
+  return `<div class="screen"><article class="portal-card balance-card"><p class="eyebrow">My savings balance</p><div class="amount-xl">${formatUGX(savings)}</div><div class="split-actions"><button class="ghost-button" data-download="member-statement">Download statement</button><button class="ghost-button" data-support>Request support</button></div></article><article class="table-card"><div class="table-head"><h2 class="section-title">My Transaction History</h2>${toolbar("Search my savings history", ["Date", "Type"])}</div>${renderTable(["Ref", "Type", "Amount", "Date", "Status"], memberTransactionRows(memberTransactions), "Details")}</article></div>`;
 }
 
 function memberLoans() {
-  const loan = loanRecords[0] || {};
+  const { loans } = memberPortalRecords();
+  const loan = loans[0] || {};
   const progress = Number(loan.progressPercent || 0);
   const outstanding = Number(loan.requestedAmount || 0) * (1 - progress / 100);
   const installment = loan.termMonths ? formatUGX(Number(loan.requestedAmount || 0) / loan.termMonths) : "UGX 0";
@@ -499,7 +523,7 @@ function memberLoans() {
 }
 
 function memberProfilePortal() {
-  const member = memberRecords[0] || currentSessionUser || {};
+  const { member } = memberPortalRecords();
   const documents = member.documents || [];
   return `<div class="grid two-col"><article class="portal-card"><div class="profile-hero">${avatarMarkup(member.name, member.profilePhoto)}<div><h2>${member.name || "Member"}</h2><p class="muted">Member ${member.memberNumber || "N/A"} - ${liveSacco?.name || "Z-SACCO"}</p></div></div><div class="form-grid" style="margin-top:18px"><div><p class="muted">Phone</p><strong>${member.phone || "Not provided"}</strong></div><div><p class="muted">Email</p><strong>${member.email || "Not provided"}</strong></div><div><p class="muted">Branch</p><strong>${liveSacco?.location || "Main Branch"}</strong></div><div><p class="muted">Registration</p><strong>${liveSacco?.registrationNumber || lastSaccoRegistration}</strong></div></div></article><article class="portal-card"><div class="card-title"><h2>KYC & Security</h2><span class="pill success">Verified</span></div><div class="activity"><div class="activity-item"><span class="status-dot"></span><div><strong>Member account active</strong><br><small>Live SACCO record</small></div></div><div class="activity-item"><span class="status-dot"></span><div><strong>KYC files</strong><br><small>${documents.length} document${documents.length === 1 ? "" : "s"} on file</small></div></div></div></article></div>`;
 }
@@ -959,21 +983,16 @@ async function loginAsRole(role, button) {
   if (role === "admin") {
     const email = form.querySelector('[name="admin_email"]')?.value.trim().toLowerCase();
     const password = form.querySelector('[name="admin_password"]')?.value;
-    let account = null;
     try {
       const result = await apiRequest("/api/auth/login", { role: "admin", email, password, rememberDevice: remember });
-      account = result.user;
+      currentSessionUser = result.user;
       authToken = result.token;
-    } catch {
-      account = adminAccounts.find((admin) => admin.email.toLowerCase() === email && admin.password === password);
-    }
-    if (!account) {
-      showToast("Invalid admin login details.");
+    } catch (error) {
+      showToast(error.message || "Invalid admin login details.");
       return;
     }
     currentSessionRole = "admin";
-    currentSessionUser = account;
-    if (remember) localStorage.setItem("zsacco_remembered_admin", account.email);
+    if (remember) localStorage.setItem("zsacco_remembered_admin", currentSessionUser.email);
     if (authToken) {
       try {
         await refreshAppData();
@@ -984,30 +1003,21 @@ async function loginAsRole(role, button) {
     setAdminScreen("dashboard");
     appFrame.classList.remove("hidden");
     portalFrame.classList.add("hidden");
-    showToast(`Welcome back, ${account.name}. Device ${remember ? "remembered" : "not remembered"}.`);
+    showToast(`Welcome back, ${currentSessionUser.name}. Device ${remember ? "remembered" : "not remembered"}.`);
     return;
   }
   const identity = form.querySelector('[name="member_identity"]')?.value.trim().toLowerCase();
   const password = form.querySelector('[name="member_password"]')?.value;
-  let member = null;
   try {
     const result = await apiRequest("/api/auth/login", { role: "member", identity, password, rememberDevice: remember });
-    member = result.user;
+    currentSessionUser = result.user;
     authToken = result.token;
-  } catch {
-    member = memberAccounts.find((item) => {
-    const matchesIdentity = [item.saccoRegistration, item.name, item.memberId].some((value) => value.toLowerCase() === identity);
-    const adminLinked = adminAccounts.some((admin) => admin.memberName.toLowerCase() === item.name.toLowerCase() && admin.password === password);
-    return matchesIdentity && (item.password === password || adminLinked);
-  });
-  }
-  if (!member) {
-    showToast("Invalid member login details.");
+  } catch (error) {
+    showToast(error.message || "Invalid member login details.");
     return;
   }
   currentSessionRole = "member";
-  currentSessionUser = member;
-  if (remember) localStorage.setItem("zsacco_remembered_member", member.memberId);
+  if (remember) localStorage.setItem("zsacco_remembered_member", currentSessionUser.memberNumber);
   if (authToken) {
     try {
       await refreshAppData();
@@ -1018,7 +1028,7 @@ async function loginAsRole(role, button) {
   setMemberScreen("memberDashboard");
   portalFrame.classList.remove("hidden");
   appFrame.classList.add("hidden");
-  showToast(`Welcome to the member portal, ${member.name}.`);
+  showToast(`Welcome to the member portal, ${currentSessionUser.name}.`);
 }
 
 async function logout() {
@@ -1304,6 +1314,15 @@ document.addEventListener("click", (event) => {
     downloadFile(`${emailDownloadButton.dataset.downloadEmail}-account-email.txt`, form.dataset.emailBody || "Z-SACCO account details");
   }
   if (downloadButton) {
+    if (downloadButton.dataset.download === "member-statement") {
+      const memberTransactions = memberPortalRecords().transactions;
+      const memberCsv = [
+        "Reference,Type,Amount,Date,Status",
+        ...memberTransactions.map((item) => [item.reference, item.transactionType, item.amount, item.date, item.status].join(",")),
+      ].join("\n");
+      downloadFile("z-sacco-member-statement.csv", memberCsv, "text/csv");
+      return;
+    }
     const csv = ["Reference,Member,Type,Amount,Date,Status", ...transactions.map((row) => row.join(","))].join("\n");
     const totalSavings = accountRecords.reduce((sum, account) => sum + Number(account.balance || 0), 0);
     const loanPortfolio = loanRecords.reduce((sum, loan) => sum + Number(loan.approvedAmount || loan.requestedAmount || 0), 0);
