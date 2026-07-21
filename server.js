@@ -143,7 +143,8 @@ function isStrongPassword(password) {
 }
 
 function hasSupabase() {
-  return String(process.env.DATA_BACKEND || "local").toLowerCase() === "supabase" && Boolean(SUPABASE_URL && SUPABASE_KEY);
+  const backend = String(process.env.DATA_BACKEND || "auto").toLowerCase();
+  return backend !== "local" && Boolean(SUPABASE_URL && SUPABASE_KEY);
 }
 
 async function supabaseRpc(name, payload) {
