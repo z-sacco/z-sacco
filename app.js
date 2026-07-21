@@ -27,7 +27,7 @@ const adminNavItems = [
   ["transactions", "Transactions", icons.receipt],
   ["reports", "Reports", icons.report],
   ["users", "User Management", icons.shield],
-  ["adminLogin", "Login Screen", icons.lock],
+  ["logout", "Logout", icons.lock],
 ];
 
 const memberNavItems = [
@@ -511,7 +511,10 @@ const memberScreens = {
 };
 
 function nav(container, items, active, target) {
-  container.innerHTML = items.map(([id, label, icon]) => `<button class="nav-item ${id === active ? "active" : ""}" data-${target}="${id}">${icon}<span>${label}</span></button>`).join("");
+  container.innerHTML = items.map(([id, label, icon]) => {
+    const action = id === "logout" ? "data-logout" : `data-${target}="${id}"`;
+    return `<button class="nav-item ${id === active ? "active" : ""}" ${action}>${icon}<span>${label}</span></button>`;
+  }).join("");
 }
 
 function setAdminScreen(id) {
