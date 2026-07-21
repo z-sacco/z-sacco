@@ -5,8 +5,8 @@ const path = require("path");
 
 const PORT = Number(process.env.PORT || 3000);
 const ROOT = __dirname;
-const DATA_DIR = path.join(ROOT, "data");
-const DB_PATH = path.join(DATA_DIR, "db.json");
+const DB_PATH = process.env.DATA_PATH ? path.resolve(process.env.DATA_PATH) : path.join(ROOT, "data", "db.json");
+const DATA_DIR = path.dirname(DB_PATH);
 
 function loadEnvFile() {
   const envPath = path.join(ROOT, ".env");
@@ -79,7 +79,31 @@ function ensureDb() {
 
 function readDb() {
   ensureDb();
-  return JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+  const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+  let changed = false;
+  for (const collection of ["saccos", "admins", "members", "sessions", "passwordResets", "outbox", "accounts", "transactions", "loans", "memberDocuments"]) {
+    if (!Array.isArray(db[collection])) {
+      db[collection] = [];
+      changed = true;
+    }
+  }
+  for (const member of db.members) {
+    if (!db.accounts.some((account) => account.memberId === member.id)) {
+      db.accounts.push({
+        id: `account_${member.id}`,
+        saccoId: member.saccoId,
+        memberId: member.id,
+        accountNumber: `SAV-${member.memberNumber}`,
+        accountType: "Savings",
+        balance: 0,
+        status: "Active",
+        createdAt: member.createdAt || now(),
+      });
+      changed = true;
+    }
+  }
+  if (changed) writeDb(db);
+  return db;
 }
 
 function writeDb(db) {
@@ -119,7 +143,7 @@ function isStrongPassword(password) {
 }
 
 function hasSupabase() {
-  return Boolean(SUPABASE_URL && SUPABASE_KEY);
+  return String(process.env.DATA_BACKEND || "local").toLowerCase() === "supabase" && Boolean(SUPABASE_URL && SUPABASE_KEY);
 }
 
 async function supabaseRpc(name, payload) {
@@ -213,15 +237,22 @@ function queueEmail(db, to, subject, body) {
 }
 
 function localAppData(db, session) {
-  const scopedMembers = db.members.filter((member) => member.saccoId === session.saccoId || session.saccoId === "seed");
+  const isAdmin = session.role === "admin";
+  const scopedMembers = db.members.filter((member) => member.saccoId === session.saccoId && (isAdmin || member.id === session.userId));
+  const memberIds = new Set(scopedMembers.map((member) => member.id));
+  const scopedAccounts = db.accounts.filter((account) => account.saccoId === session.saccoId && memberIds.has(account.memberId));
+  const accountIds = new Set(scopedAccounts.map((account) => account.id));
+  const scopedTransactions = db.transactions.filter((transaction) => transaction.saccoId === session.saccoId && accountIds.has(transaction.accountId));
+  const scopedLoans = db.loans.filter((loan) => loan.saccoId === session.saccoId && memberIds.has(loan.memberId));
+  const totalSavings = scopedAccounts.reduce((sum, account) => sum + cleanAmount(account.balance), 0);
   return {
     sacco: db.saccos.find((item) => item.id === session.saccoId) || { name: "Z-SACCO Demo Cooperative", registrationNumber: "ZS-SACCO-2026-100001" },
     summary: {
       totalMembers: scopedMembers.length,
-      totalAccounts: 0,
-      totalSavings: 0,
-      activeLoans: 0,
-      totalTransactions: 0,
+      totalAccounts: scopedAccounts.length,
+      totalSavings,
+      activeLoans: scopedLoans.filter((loan) => !["Rejected", "Closed"].includes(loan.status)).length,
+      totalTransactions: scopedTransactions.length,
     },
     members: scopedMembers.map((member) => ({
       id: member.id,
@@ -229,18 +260,21 @@ function localAppData(db, session) {
       name: member.name,
       phone: member.phone,
       email: member.email,
-      branch: "Main Branch",
+      branch: member.branch || "Main Branch",
       profilePhoto: member.profilePhoto || "",
       documents: member.documents || [],
-      savingsBalance: 0,
-      loansCount: 0,
+      savingsBalance: scopedAccounts.filter((account) => account.memberId === member.id).reduce((sum, account) => sum + cleanAmount(account.balance), 0),
+      loansCount: scopedLoans.filter((loan) => loan.memberId === member.id).length,
       status: "Active",
       createdAt: member.createdAt,
     })),
-    accounts: [],
-    transactions: [],
-    loans: [],
-    staff: db.admins.map((admin) => ({ ...publicUser(admin, "admin"), role: "Admin", branch: "Head Office", access: "Full access", status: "Active" })),
+    accounts: scopedAccounts.map((account) => ({
+      ...account,
+      memberName: scopedMembers.find((member) => member.id === account.memberId)?.name || "Member",
+    })),
+    transactions: scopedTransactions.sort((a, b) => String(b.date).localeCompare(String(a.date))),
+    loans: scopedLoans.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))),
+    staff: isAdmin ? db.admins.filter((admin) => admin.saccoId === session.saccoId).map((admin) => ({ ...publicUser(admin, "admin"), role: "Admin", branch: "Head Office", access: "Full access", status: "Active" })) : [],
   };
 }
 
@@ -499,12 +533,26 @@ async function saveMember(req, res) {
     name: input.name.trim(),
     phone: input.phone || "",
     email: input.email || "",
+    branch: input.branch || "Main Branch",
+    nationalId: input.nationalId || "",
+    memberType: input.memberType || "Individual",
+    address: input.address || "",
     profilePhoto: (input.kycDocuments || []).find((doc) => doc.isProfilePhoto)?.dataUrl || "",
     documents: input.kycDocuments || [],
     passwordHash: hashPassword(input.password || "Member2026!"),
     createdAt: now(),
   };
   db.members.push(member);
+  db.accounts.push({
+    id: makeId("account"),
+    saccoId: session.saccoId,
+    memberId: member.id,
+    accountNumber: `SAV-${member.memberNumber}`,
+    accountType: "Savings",
+    balance: 0,
+    status: "Active",
+    createdAt: now(),
+  });
   queueEmail(
     db,
     member.email,
@@ -539,7 +587,26 @@ async function postTransaction(req, res) {
     }));
     return sendJson(res, 200, result);
   }
-  sendJson(res, 501, { error: "Transaction posting requires the Supabase data layer." });
+  const db = readDb();
+  const session = db.sessions.find((item) => item.token === input.token && item.role === "admin");
+  if (!session) return sendJson(res, 401, { error: "Only admins can post transactions." });
+  const account = db.accounts.find((item) => item.id === input.accountId && item.saccoId === session.saccoId);
+  if (!account) return sendJson(res, 404, { error: "Account not found." });
+  const amount = cleanAmount(input.amount);
+  if (amount <= 0) return sendJson(res, 400, { error: "Amount must be greater than zero." });
+  const type = String(input.transactionType || "").toLowerCase();
+  if (!['deposit', 'withdrawal'].includes(type)) return sendJson(res, 400, { error: "Transaction type must be Deposit or Withdrawal." });
+  if (type === "withdrawal" && amount > cleanAmount(account.balance)) return sendJson(res, 400, { error: "Insufficient account balance." });
+  account.balance = cleanAmount(account.balance) + (type === "deposit" ? amount : -amount);
+  const member = db.members.find((item) => item.id === account.memberId);
+  db.transactions.push({
+    id: makeId("transaction"), reference: makeId("TX").slice(0, 14).toUpperCase(),
+    saccoId: session.saccoId, accountId: account.id, memberId: member?.id,
+    memberName: member?.name || "Member", transactionType: type === "deposit" ? "Deposit" : "Withdrawal",
+    amount, method: input.method || "Cash", narration: input.narration || "", status: "Completed", date: now(),
+  });
+  writeDb(db);
+  return sendJson(res, 200, localAppData(db, session));
 }
 
 async function submitLoan(req, res) {
@@ -551,7 +618,21 @@ async function submitLoan(req, res) {
     }));
     return sendJson(res, 200, result);
   }
-  sendJson(res, 501, { error: "Loan submissions require the Supabase data layer." });
+  const db = readDb();
+  const session = db.sessions.find((item) => item.token === input.token && item.role === "admin");
+  if (!session) return sendJson(res, 401, { error: "Only admins can submit loans from this screen." });
+  const member = db.members.find((item) => item.id === input.memberId && item.saccoId === session.saccoId);
+  if (!member) return sendJson(res, 404, { error: "Member not found." });
+  const amount = cleanAmount(input.amount);
+  if (amount <= 0) return sendJson(res, 400, { error: "Loan amount must be greater than zero." });
+  db.loans.push({
+    id: makeId("loan"), loanNumber: makeId("LN").slice(0, 14).toUpperCase(), saccoId: session.saccoId,
+    memberId: member.id, memberName: member.name, product: input.product || "Standard Loan",
+    requestedAmount: amount, approvedAmount: 0, termMonths: Number(input.term) || 12,
+    purpose: input.purpose || "", progressPercent: 0, status: "Pending", createdAt: now(),
+  });
+  writeDb(db);
+  return sendJson(res, 200, localAppData(db, session));
 }
 
 async function decideLoan(req, res) {
@@ -560,7 +641,19 @@ async function decideLoan(req, res) {
     const result = await supabaseRpc("api_decide_loan", authPayload(input));
     return sendJson(res, 200, result);
   }
-  sendJson(res, 501, { error: "Loan decisions require the Supabase data layer." });
+  const db = readDb();
+  const session = db.sessions.find((item) => item.token === input.token && item.role === "admin");
+  if (!session) return sendJson(res, 401, { error: "Only admins can decide loans." });
+  const loan = db.loans.find((item) => item.id === input.loanId && item.saccoId === session.saccoId);
+  if (!loan) return sendJson(res, 404, { error: "Loan not found." });
+  const decision = String(input.decision || "").toLowerCase();
+  if (!['approve', 'reject'].includes(decision)) return sendJson(res, 400, { error: "Decision must be approve or reject." });
+  loan.status = decision === "approve" ? "Performing" : "Rejected";
+  loan.approvedAmount = decision === "approve" ? loan.requestedAmount : 0;
+  loan.progressPercent = decision === "approve" ? 5 : 0;
+  loan.decidedAt = now();
+  writeDb(db);
+  return sendJson(res, 200, localAppData(db, session));
 }
 
 function serveStatic(req, res) {

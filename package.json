@@ -5,6 +5,7 @@
   "description": "Z-SACCO public website and management system prototype with a local backend.",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node tests/integration.js"
   }
 }
