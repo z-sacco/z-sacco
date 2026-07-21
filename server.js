@@ -183,6 +183,24 @@ function sendJson(res, status, payload) {
 }
 
 function readBody(req) {
+  if (req.body !== undefined) {
+    if (Buffer.isBuffer(req.body)) {
+      try {
+        return Promise.resolve(req.body.length ? JSON.parse(req.body.toString("utf8")) : {});
+      } catch {
+        return Promise.reject(new Error("Invalid JSON."));
+      }
+    }
+    if (typeof req.body === "string") {
+      try {
+        return Promise.resolve(req.body ? JSON.parse(req.body) : {});
+      } catch {
+        return Promise.reject(new Error("Invalid JSON."));
+      }
+    }
+    if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
+  }
+
   return new Promise((resolve, reject) => {
     let body = "";
     req.on("data", (chunk) => {
