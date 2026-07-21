@@ -7,6 +7,8 @@ const icons = {
   report: '<svg viewBox="0 0 24 24"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-3"/></svg>',
   shield: '<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>',
   lock: '<svg viewBox="0 0 24 24"><path d="M6 10V8a6 6 0 0 1 12 0v2M5 10h14v11H5V10Z"/></svg>',
+  eye: '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeOff: '<svg viewBox="0 0 24 24"><path d="m3 3 18 18M10.6 10.6A2 2 0 0 0 13.4 13.4M9.9 4.2A10.8 10.8 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.1 3.1M6.6 6.6C3.5 8.5 2 12 2 12s3.5 8 10 8a9.8 9.8 0 0 0 4.1-.9"/></svg>',
   search: '<svg viewBox="0 0 24 24"><path d="m21 21-4.3-4.3M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"/></svg>',
   file: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
   user: '<svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg>',
@@ -221,10 +223,10 @@ function authScreen(type) {
   const rememberedMember = localStorage.getItem("zsacco_remembered_member") || lastSaccoRegistration;
   const signinFields = isMember
     ? `<div class="field"><label>SACCO registration number, member ID, or member name</label><input name="member_identity" value="${rememberedMember}" /></div>
-       <div class="field"><label>Member password</label><input name="member_password" type="password" value="Member2026!" /></div>
+       <div class="field"><label>Member password</label><div class="password-control"><input name="member_password" type="password" value="Member2026!" /><button class="password-toggle" type="button" data-toggle-password aria-label="Show password" aria-pressed="false">${icons.eye}</button></div></div>
        <div class="security-note full"><strong>Member access</strong><span>Members use the SACCO registration number, member ID, or registered name with a private password set for the member portal.</span></div>`
     : `<div class="field"><label>Email address</label><input name="admin_email" value="${rememberedAdmin}" /></div>
-       <div class="field"><label>Password</label><input name="admin_password" type="password" value="zsacco" /></div>`;
+       <div class="field"><label>Password</label><div class="password-control"><input name="admin_password" type="password" value="zsacco" /><button class="password-toggle" type="button" data-toggle-password aria-label="Show password" aria-pressed="false">${icons.eye}</button></div></div>`;
   return `<section class="auth-screen">
     <div class="auth-art-card">
       <div class="auth-welcome">
@@ -273,8 +275,8 @@ function authScreen(type) {
           <div class="field"><label>Owner / admin full name</label><input name="owner_name" value="Amina Kato" required /></div>
           <div class="field"><label>Owner phone number</label><input name="owner_phone" value="+256 700 000 000" required /></div>
           <div class="field"><label>Owner email address</label><input name="owner_email" type="email" value="owner@zsacco.coop" required /></div>
-          <div class="field"><label>Create password</label><input name="password" type="password" value="Zsacco2026!#" required /></div>
-          <div class="field"><label>Confirm password</label><input name="confirm_password" type="password" value="Zsacco2026!#" required /></div>
+          <div class="field"><label>Create password</label><div class="password-control"><input name="password" type="password" value="Zsacco2026!#" required /><button class="password-toggle" type="button" data-toggle-password aria-label="Show password" aria-pressed="false">${icons.eye}</button></div></div>
+          <div class="field"><label>Confirm password</label><div class="password-control"><input name="confirm_password" type="password" value="Zsacco2026!#" required /><button class="password-toggle" type="button" data-toggle-password aria-label="Show password" aria-pressed="false">${icons.eye}</button></div></div>
           <div class="security-note full"><strong>Main account security</strong><span>This creates the SACCO owner/admin account. Members will later set their own limited-access member portal passwords.</span></div>
           <div class="security-note full"><strong>Password rules</strong><span>Use at least 12 characters with uppercase, lowercase, number, symbol, and no spaces.</span></div>
           <button class="gold-submit full" type="button" data-create-access>${icons.lock} Create account</button>
@@ -306,7 +308,7 @@ function memberForm() {
       <div class="field"><label>Email address</label><input name="email" type="email" placeholder="member@example.com" required /></div>
       <div class="field"><label>Branch</label><select name="branch" required><option value="" selected disabled>Select branch</option><option>${liveSacco?.location || "Main Branch"}</option><option>Wandegeya</option><option>Mukono</option></select></div>
       <div class="field"><label>Membership type</label><select name="member_type" required><option value="" selected disabled>Select type</option><option>Individual</option><option>Group</option><option>Corporate</option></select></div>
-      <div class="field"><label>Member portal password</label><div class="password-input-group"><input name="password" type="password" placeholder="Create secure password" required /><button class="ghost-button" type="button" data-generate-member-password>Generate</button></div></div>
+      <div class="field"><label>Member portal password</label><div class="password-input-group"><div class="password-control"><input name="password" type="password" placeholder="Create secure password" required /><button class="password-toggle" type="button" data-toggle-password aria-label="Show password" aria-pressed="false">${icons.eye}</button></div><button class="ghost-button" type="button" data-generate-member-password>Generate</button></div></div>
       <div class="field full"><label>Address</label><textarea name="address" placeholder="Enter member address" required></textarea></div>
       <div class="security-note full"><strong>Password rules</strong><span>Use at least 12 characters with uppercase, lowercase, number, symbol, and no spaces.</span></div>
       <div class="kyc-upload-panel full">
@@ -1243,6 +1245,7 @@ document.addEventListener("click", (event) => {
   const generateMemberPasswordButton = event.target.closest("[data-generate-member-password]");
   const uploadKycButton = event.target.closest("[data-upload-kyc]");
   const removeKycButton = event.target.closest("[data-remove-kyc]");
+  const togglePasswordButton = event.target.closest("[data-toggle-password]");
   if (openAppButton) openSystemAuth(openAppButton.dataset.openApp);
   if (scrollButton) scrollToSection(scrollButton.dataset.scrollTarget);
   if (featureCard) setFeatureDetail(featureCard);
@@ -1250,11 +1253,27 @@ document.addEventListener("click", (event) => {
   if (loginSubmitButton) loginAsRole(loginSubmitButton.dataset.loginSubmit, loginSubmitButton);
   if (forgotPasswordButton) forgotPassword(forgotPasswordButton.dataset.forgotPassword, forgotPasswordButton);
   if (logoutButton) logout();
+  if (togglePasswordButton) {
+    const input = togglePasswordButton.closest(".password-control")?.querySelector("input");
+    if (input) {
+      const showing = input.type === "text";
+      input.type = showing ? "password" : "text";
+      togglePasswordButton.innerHTML = showing ? icons.eye : icons.eyeOff;
+      togglePasswordButton.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+      togglePasswordButton.setAttribute("aria-pressed", String(!showing));
+    }
+  }
   if (generateMemberPasswordButton) {
     const input = generateMemberPasswordButton.closest(".password-input-group")?.querySelector('[name="password"]');
     if (input) {
       input.type = "text";
       input.value = generateSecurePassword();
+      const toggle = input.closest(".password-control")?.querySelector("[data-toggle-password]");
+      if (toggle) {
+        toggle.innerHTML = icons.eyeOff;
+        toggle.setAttribute("aria-label", "Hide password");
+        toggle.setAttribute("aria-pressed", "true");
+      }
       showToast("Secure member password generated.");
     }
   }
