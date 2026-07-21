@@ -17,7 +17,7 @@ const icons = {
 const adminNavItems = [
   ["dashboard", "Dashboard", icons.dashboard],
   ["members", "Members", icons.users],
-  ["memberForm", "Add/Edit Member", icons.user],
+  ["memberForm", "Add Member", icons.user],
   ["memberProfile", "Member Profile", icons.file],
   ["accounts", "Savings / Accounts", icons.wallet],
   ["deposit", "Deposit", icons.wallet],
@@ -112,6 +112,7 @@ let currentMemberScreen = "memberDashboard";
 let selectedTransaction = transactions[0];
 let selectedLoan = loanRows[0];
 let selectedMember = null;
+let editingMember = null;
 let toastTimer;
 let lastSaccoRegistration = "ZS-SACCO-2026-100001";
 let currentSessionRole = null;
@@ -290,25 +291,34 @@ function membersScreen() {
   return `<div class="screen">
     <div class="table-card">
       <div class="table-head"><h2 class="section-title">Member Management</h2>${toolbar("Search members by name, ID, or branch", ["All branches", "All statuses"])}</div>
-      ${renderTable(["Member ID", "Name", "Branch", "Savings", "Loans", "Status"], members)}
+      ${renderTable(["Member ID", "Name", "Branch", "Savings", "Loans", "Status"], members, "Edit")}
     </div>
   </div>`;
 }
 
 function memberForm() {
-  uploadedKycDocuments = [];
+  const member = editingMember;
+  uploadedKycDocuments = member?.documents ? [...member.documents] : [];
+  const nameParts = String(member?.name || "").trim().split(/\s+/);
+  const firstName = nameParts.shift() || "";
+  const lastName = nameParts.join(" ");
+  const phone = String(member?.phone || "");
+  const phoneCode = ["+256", "+254", "+255", "+250", "+211", "+243"].find((code) => phone.startsWith(code)) || "+256";
+  const localPhone = phone.startsWith(phoneCode) ? phone.slice(phoneCode.length) : phone;
+  const esc = (value) => String(value || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return `<div class="screen"><article class="card">
-    <div class="card-title"><h2>Add / Edit Member</h2><span class="pill">KYC required</span></div>
+    <div class="card-title"><h2>${member ? `Edit ${esc(member.name)}` : "Add Member"}</h2><span class="pill">KYC required</span></div>
     <form class="form-grid">
-      <div class="field"><label>First name</label><input name="first_name" placeholder="Enter first name" required /></div>
-      <div class="field"><label>Last name</label><input name="last_name" placeholder="Enter last name" required /></div>
-      <div class="field"><label>National ID</label><input name="national_id" placeholder="Enter national ID / NIN" required /></div>
-      <div class="field"><label>Phone number</label><div class="phone-input-group"><select name="country_code" required><option value="+256" selected>UG +256</option><option value="+254">KE +254</option><option value="+255">TZ +255</option><option value="+250">RW +250</option><option value="+211">SS +211</option><option value="+243">DRC +243</option></select><input name="phone_local" placeholder="700 000 000" required /></div></div>
-      <div class="field"><label>Email address</label><input name="email" type="email" placeholder="member@example.com" required /></div>
-      <div class="field"><label>Branch</label><select name="branch" required><option value="" selected disabled>Select branch</option><option>${liveSacco?.location || "Main Branch"}</option><option>Wandegeya</option><option>Mukono</option></select></div>
-      <div class="field"><label>Membership type</label><select name="member_type" required><option value="" selected disabled>Select type</option><option>Individual</option><option>Group</option><option>Corporate</option></select></div>
-      <div class="field"><label>Member portal password</label><div class="password-input-group"><div class="password-control"><input name="password" type="password" placeholder="Create secure password" required /><button class="password-toggle" type="button" data-toggle-password aria-label="Show password" aria-pressed="false">${icons.eye}</button></div><button class="ghost-button" type="button" data-generate-member-password>Generate</button></div></div>
-      <div class="field full"><label>Address</label><textarea name="address" placeholder="Enter member address" required></textarea></div>
+      <input type="hidden" name="member_id" value="${esc(member?.id)}" />
+      <div class="field"><label>First name</label><input name="first_name" value="${esc(firstName)}" placeholder="Enter first name" required /></div>
+      <div class="field"><label>Last name</label><input name="last_name" value="${esc(lastName)}" placeholder="Enter last name" required /></div>
+      <div class="field"><label>National ID</label><input name="national_id" value="${esc(member?.nationalId)}" placeholder="Enter national ID / NIN" ${member ? "" : "required"} /></div>
+      <div class="field"><label>Phone number</label><div class="phone-input-group"><select name="country_code" required>${[["+256","UG +256"],["+254","KE +254"],["+255","TZ +255"],["+250","RW +250"],["+211","SS +211"],["+243","DRC +243"]].map(([value,label]) => `<option value="${value}" ${value === phoneCode ? "selected" : ""}>${label}</option>`).join("")}</select><input name="phone_local" value="${esc(localPhone)}" placeholder="700 000 000" required /></div></div>
+      <div class="field"><label>Email address</label><input name="email" type="email" value="${esc(member?.email)}" placeholder="member@example.com" required /></div>
+      <div class="field"><label>Branch</label><select name="branch" required>${[liveSacco?.location || "Main Branch", "Wandegeya", "Mukono"].map((branch) => `<option ${branch === member?.branch ? "selected" : ""}>${branch}</option>`).join("")}</select></div>
+      <div class="field"><label>Membership type</label><select name="member_type" required>${["Individual", "Group", "Corporate"].map((type) => `<option ${type === (member?.memberType || "Individual") ? "selected" : ""}>${type}</option>`).join("")}</select></div>
+      <div class="field"><label>Member portal password${member ? " (leave blank to keep current)" : ""}</label><div class="password-input-group"><div class="password-control"><input name="password" type="password" placeholder="${member ? "Keep current password" : "Create secure password"}" ${member ? "" : "required"} /><button class="password-toggle" type="button" data-toggle-password aria-label="Show password" aria-pressed="false">${icons.eye}</button></div><button class="ghost-button" type="button" data-generate-member-password>Generate</button></div></div>
+      <div class="field full"><label>Address</label><textarea name="address" placeholder="Enter member address" ${member ? "" : "required"}>${esc(member?.address)}</textarea></div>
       <div class="security-note full"><strong>Password rules</strong><span>Use at least 12 characters with uppercase, lowercase, number, symbol, and no spaces.</span></div>
       <div class="kyc-upload-panel full">
         <div>
@@ -329,7 +339,7 @@ function memberForm() {
         </div>
         <div class="kyc-preview-list" data-kyc-preview><span class="muted">No KYC files uploaded yet.</span></div>
       </div>
-      <div class="form-actions full"><button class="primary-button" type="button" data-save-member>Save member</button></div>
+      <div class="form-actions full">${member ? '<button class="ghost-button" type="button" data-screen="members">Cancel</button>' : ""}<button class="primary-button" type="button" data-save-member>${member ? "Save changes" : "Add member"}</button></div>
     </form>
   </article></div>`;
 }
@@ -549,7 +559,7 @@ function setAdminScreen(id) {
     ? ["adminLogin", "Staff Login", icons.lock]
     : adminNavItems.find(([key]) => key === id) || adminNavItems[0];
   nav(document.querySelector("#adminNav"), adminNavItems, item[0], "screen");
-  pageTitle.textContent = item[1];
+  pageTitle.textContent = item[0] === "memberForm" && editingMember ? "Edit Member" : item[1];
   sectionLabel.textContent = item[0] === "adminLogin" ? "Authentication" : "Back Office";
   appFrame.classList.toggle("login-mode", item[0] === "adminLogin");
   adminContent.innerHTML = adminScreens[item[0]]();
@@ -823,13 +833,14 @@ async function saveMember(button) {
   const last = String(data.get("last_name") || "").trim();
   const branch = String(data.get("branch") || liveSacco?.location || "Main Branch");
   const password = String(data.get("password") || "");
+  const memberId = String(data.get("member_id") || "");
   const localPhone = String(data.get("phone_local") || "").replace(/^0+/, "").replace(/\D/g, "");
   const phone = `${data.get("country_code")}${localPhone}`;
   if (localPhone.length < 6) {
     showToast("Please enter a valid member phone number.");
     return;
   }
-  if (!validatePassword(password)) {
+  if ((!memberId || password) && !validatePassword(password)) {
     showToast("Member password is too weak. Use 12+ characters with uppercase, lowercase, number, symbol, and no spaces.");
     return;
   }
@@ -837,6 +848,7 @@ async function saveMember(button) {
     try {
       const result = await apiRequest("/api/members", {
         token: authToken,
+        memberId,
         name: `${first} ${last}`,
         phone,
         email: data.get("email"),
@@ -849,7 +861,8 @@ async function saveMember(button) {
         kycDocuments: uploadedKycDocuments,
       });
       syncAppData(result);
-      showToast(`${first} ${last} saved. Login details were queued for email and phone.`);
+      editingMember = null;
+      showToast(memberId ? `${first} ${last} updated successfully.` : `${first} ${last} added. Login details were queued for email and phone.`);
       setAdminScreen("members");
       return;
     } catch (error) {
@@ -1307,7 +1320,10 @@ document.addEventListener("click", (event) => {
     uploadedKycDocuments.splice(Number(removeKycButton.dataset.removeKyc), 1);
     renderKycPreview(form);
   }
-  if (screenButton) setAdminScreen(screenButton.dataset.screen);
+  if (screenButton) {
+    if (screenButton.dataset.screen === "memberForm") editingMember = null;
+    setAdminScreen(screenButton.dataset.screen);
+  }
   if (memberScreenButton) setMemberScreen(memberScreenButton.dataset.memberScreen);
   if (authTabButton) setAuthMode(authTabButton.dataset.authTab, authTabButton);
   if (transactionButton) postTransaction(transactionButton.dataset.postTransaction, transactionButton);
@@ -1364,7 +1380,15 @@ document.addEventListener("click", (event) => {
       setAdminScreen("loanDetails");
     }
     if (label === "download") downloadFile(`${values[0].toLowerCase()}-statement.txt`, `Z-SACCO Statement\nStatement: ${values[0]}\nMember: ${values[1]}\nPeriod: ${values[2]}\nBalance: ${values[3]}`);
-    if (label === "edit") showToast(`${values[0]} role opened for editing.`);
+    if (label === "edit") {
+      if (values[0]?.startsWith("ZS-")) {
+        editingMember = memberRecords.find((member) => member.memberNumber === values[0]) || values.record || null;
+        if (editingMember) setAdminScreen("memberForm");
+        else showToast("This member record could not be opened.");
+      } else {
+        showToast(`${values[0]} role opened for editing.`);
+      }
+    }
   }
   if (switchButton) {
     guardedSwitch(switchButton.dataset.switch);

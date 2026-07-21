@@ -45,6 +45,14 @@ async function waitForServer() {
   const member = data.members.find((item) => item.email === "member@test.example");
   const account = data.accounts.find((item) => item.memberId === member.id);
   assert.ok(account, "New members receive a savings account");
+  data = await request("/api/members", {
+    token: login.token, memberId: member.id, name: "Updated Member", phone: "+256700100203",
+    email: "member@test.example", branch: "Mukono", nationalId: "CM123", memberType: "Individual",
+    address: "Mukono", password: "",
+  });
+  const updatedMember = data.members.find((item) => item.id === member.id);
+  assert.equal(updatedMember.name, "Updated Member", "Member details can be edited without creating a duplicate");
+  assert.equal(data.members.filter((item) => item.id === member.id).length, 1);
   data = await request("/api/transactions", { token: login.token, accountId: account.id, transactionType: "Deposit", amount: 250000, method: "Cash" });
   assert.equal(data.accounts.find((item) => item.id === account.id).balance, 250000);
   data = await request("/api/transactions", { token: login.token, accountId: account.id, transactionType: "Withdrawal", amount: 50000, method: "Cash" });

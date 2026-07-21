@@ -529,26 +529,42 @@ async function appData(req, res) {
 
 async function saveMember(req, res) {
   const input = await readBody(req);
+  const isEdit = Boolean(String(input.memberId || "").trim());
   if (!String(input.name || "").trim()) return sendJson(res, 400, { error: "Member name is required." });
   if (!String(input.email || "").trim()) return sendJson(res, 400, { error: "Member email is required." });
   if (!String(input.phone || "").trim()) return sendJson(res, 400, { error: "Member phone is required." });
-  if (!isStrongPassword(input.password || "")) return sendJson(res, 400, { error: "Member password must be at least 12 characters with uppercase, lowercase, number, symbol, and no spaces." });
+  if ((!isEdit || input.password) && !isStrongPassword(input.password || "")) return sendJson(res, 400, { error: "Member password must be at least 12 characters with uppercase, lowercase, number, symbol, and no spaces." });
 
   if (hasSupabase()) {
     const result = await supabaseRpc("api_save_member", authPayload({
       ...input,
-      passwordHash: hashPassword(input.password || "Member2026!"),
+      passwordHash: input.password ? hashPassword(input.password) : "",
       temporaryPassword: input.temporaryPassword || input.password,
     }));
-    const savedMember = (result.members || []).find((member) => String(member.email || "").toLowerCase() === String(input.email || "").toLowerCase())
-      || (result.members || [])[0];
-    storeMemberDocuments(savedMember, input.kycDocuments);
-    return sendJson(res, 200, mergeLocalMemberDocuments(result));
+    return sendJson(res, 200, result);
   }
 
   const db = readDb();
   const session = db.sessions.find((item) => item.token === input.token && item.role === "admin");
   if (!session) return sendJson(res, 401, { error: "Only admins can manage members." });
+  if (isEdit) {
+    const member = db.members.find((item) => item.id === input.memberId && item.saccoId === session.saccoId);
+    if (!member) return sendJson(res, 404, { error: "Member not found." });
+    Object.assign(member, {
+      name: input.name.trim(),
+      phone: input.phone,
+      email: input.email,
+      branch: input.branch || "Main Branch",
+      nationalId: input.nationalId || "",
+      memberType: input.memberType || "Individual",
+      address: input.address || "",
+      documents: input.kycDocuments?.length ? input.kycDocuments : member.documents,
+      profilePhoto: input.kycDocuments?.find((doc) => doc.isProfilePhoto)?.dataUrl || member.profilePhoto,
+      ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
+    });
+    writeDb(db);
+    return sendJson(res, 200, localAppData(db, session));
+  }
   const member = {
     id: makeId("member"),
     saccoId: session.saccoId,
