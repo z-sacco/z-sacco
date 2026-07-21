@@ -518,7 +518,7 @@ async function appData(req, res) {
   const input = await readBody(req);
   if (hasSupabase()) {
     const result = await supabaseRpc("api_get_app_data", authPayload(input));
-    return sendJson(res, 200, mergeLocalMemberDocuments(result));
+    return sendJson(res, 200, result);
   }
 
   const db = readDb();
