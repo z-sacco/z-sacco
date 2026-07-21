@@ -558,7 +558,9 @@ function setAdminScreen(id) {
 
 function setMemberScreen(id) {
   currentMemberScreen = id;
-  const item = memberNavItems.find(([key]) => key === id) || memberNavItems[0];
+  const item = id === "memberLogin"
+    ? ["memberLogin", "Member Login", icons.lock]
+    : memberNavItems.find(([key]) => key === id) || memberNavItems[0];
   nav(document.querySelector("#memberNav"), memberNavItems, item[0], "member-screen");
   portalFrame.classList.toggle("login-mode", item[0] === "memberLogin");
   memberContent.innerHTML = memberScreens[item[0]]();
