@@ -747,7 +747,15 @@ async function apiRequest(path, payload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = await response.json();
+  const responseText = await response.text();
+  let data;
+  try {
+    data = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    throw new Error(response.ok
+      ? "The server returned an invalid response."
+      : `The server endpoint is unavailable (${response.status}). Please try again after deployment.`);
+  }
   if (!response.ok) throw new Error(data.error || "Request failed.");
   return data;
 }

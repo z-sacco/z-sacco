@@ -24,8 +24,12 @@ function loadEnvFile() {
 
 loadEnvFile();
 
-const SUPABASE_URL = process.env.SUPABASE_URL || "";
-const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || "";
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY
+  || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  || process.env.SUPABASE_ANON_KEY
+  || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  || "";
 
 const PUBLIC_FILES = new Set(["/", "/index.html", "/styles.css", "/app.js"]);
 const MIME_TYPES = {
@@ -676,7 +680,7 @@ function serveStatic(req, res) {
   fs.createReadStream(filePath).pipe(res);
 }
 
-const server = http.createServer(async (req, res) => {
+async function requestHandler(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     if (req.method === "POST" && url.pathname === "/api/saccos") return registerSacco(req, res);
@@ -694,9 +698,14 @@ const server = http.createServer(async (req, res) => {
   } catch (error) {
     sendJson(res, 500, { error: error.message || "Server error." });
   }
-});
+}
 
-ensureDb();
-server.listen(PORT, () => {
-  console.log(`Z-SACCO server running at http://localhost:${PORT}`);
-});
+module.exports = requestHandler;
+
+if (require.main === module) {
+  if (!hasSupabase()) ensureDb();
+  const server = http.createServer(requestHandler);
+  server.listen(PORT, () => {
+    console.log(`Z-SACCO server running at http://localhost:${PORT}`);
+  });
+}
