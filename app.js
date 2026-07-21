@@ -521,7 +521,9 @@ function nav(container, items, active, target) {
 
 function setAdminScreen(id) {
   currentAdminScreen = id;
-  const item = adminNavItems.find(([key]) => key === id) || adminNavItems[0];
+  const item = id === "adminLogin"
+    ? ["adminLogin", "Staff Login", icons.lock]
+    : adminNavItems.find(([key]) => key === id) || adminNavItems[0];
   nav(document.querySelector("#adminNav"), adminNavItems, item[0], "screen");
   pageTitle.textContent = item[1];
   sectionLabel.textContent = item[0] === "adminLogin" ? "Authentication" : "Back Office";
