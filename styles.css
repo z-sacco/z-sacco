@@ -42,16 +42,18 @@
 .public-v2 .site-nav {
   width: min(1240px, calc(100% - 40px));
   min-height: 70px;
-  margin: 14px auto 0;
+  margin: 0;
   padding: 0 12px 0 18px;
-  position: sticky;
+  position: fixed;
   top: 14px;
+  left: 50%;
   z-index: 20;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   background: rgba(17, 19, 15, 0.88);
   box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(22px);
+  transform: translateX(-50%);
 }
 
 .public-v2 .site-brand {
@@ -175,8 +177,8 @@
 .public-v2 .site-hero {
   width: 100%;
   min-height: 790px;
-  margin-top: -86px;
-  padding: 166px max(20px, calc((100vw - 1240px) / 2)) 90px;
+  margin-top: 0;
+  padding: 130px max(20px, calc((100vw - 1240px) / 2)) 90px;
   grid-template-columns: minmax(420px, 0.86fr) minmax(540px, 1.14fr);
   gap: clamp(42px, 5vw, 82px);
   color: #fff;
@@ -184,6 +186,13 @@
     radial-gradient(circle at 74% 36%, rgba(214, 168, 37, 0.14), transparent 28%),
     linear-gradient(120deg, #0d0f0c 0%, #151811 58%, #0a0b09 100%);
   position: relative;
+}
+
+.public-v2 #features,
+.public-v2 #how,
+.public-v2 #plans,
+.public-v2 #contact {
+  scroll-margin-top: 105px;
 }
 
 .public-v2 .site-hero::before {
@@ -1285,7 +1294,7 @@
   }
 
   .public-v2 .site-hero {
-    padding-top: 160px;
+    padding-top: 125px;
   }
 
   .product-stage {
@@ -1305,7 +1314,6 @@
   .public-v2 .site-nav {
     width: calc(100% - 24px);
     top: 8px;
-    margin-top: 8px;
   }
 
   .public-v2 .site-brand small,
@@ -1324,8 +1332,8 @@
   }
 
   .public-v2 .site-hero {
-    margin-top: -78px;
-    padding: 78px 20px 60px;
+    margin-top: 0;
+    padding: 98px 20px 60px;
   }
 
   .public-v2 .hero-copy h1 {
