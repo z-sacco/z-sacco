@@ -3816,21 +3816,6 @@ textarea:focus {
   transform: rotateX(68deg);
 }
 
-.hero-money-art::after {
-  content: "";
-  width: 290px;
-  height: 290px;
-  position: absolute;
-  top: 18%;
-  right: 10%;
-  z-index: -1;
-  border: 1px solid rgba(240, 205, 98, 0.16);
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 48px rgba(240, 205, 98, 0.035),
-    0 0 0 96px rgba(240, 205, 98, 0.02);
-}
-
 .hero-savings-jar,
 .hero-cash-bundles,
 .cash-hand-stage > img {
@@ -3859,33 +3844,6 @@ textarea:focus {
   z-index: 5;
   transform: rotate(-8deg) translateZ(40px);
   animation: cashFloat 7.4s ease-in-out infinite;
-}
-
-.art-orbit {
-  position: absolute;
-  z-index: 1;
-  border: 1px solid rgba(240, 205, 98, 0.48);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.art-orbit-one {
-  width: 94%;
-  height: 41%;
-  left: 2%;
-  top: 34%;
-  transform: rotate(-17deg);
-  animation: orbitDrift 10s ease-in-out infinite alternate;
-}
-
-.art-orbit-two {
-  width: 75%;
-  height: 34%;
-  left: 14%;
-  top: 31%;
-  opacity: 0.54;
-  transform: rotate(31deg);
-  animation: orbitDriftTwo 12s ease-in-out infinite alternate;
 }
 
 .art-coin {
@@ -4168,11 +4126,6 @@ textarea:focus {
   to { transform: rotate(-11deg) scale(1.03); }
 }
 
-@keyframes orbitDriftTwo {
-  from { transform: rotate(31deg) scale(0.97); }
-  to { transform: rotate(25deg) scale(1.02); }
-}
-
 @media (max-width: 1100px) {
   .public-v2 .product-stage,
   .hero-money-art {
@@ -4227,12 +4180,6 @@ textarea:focus {
     bottom: 0;
   }
 
-  .art-orbit-one {
-    width: 108%;
-    left: -4%;
-  }
-
-  .art-orbit-two,
   .art-coin-two {
     display: none;
   }
@@ -4338,7 +4285,6 @@ textarea:focus {
   .hero-savings-jar,
   .hero-cash-bundles,
   .cash-hand-stage > img,
-  .art-orbit,
   .art-coin,
   .art-status {
     animation: none;
