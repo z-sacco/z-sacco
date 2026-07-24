@@ -1137,17 +1137,33 @@ function setFeatureDetail(card) {
   detailBox.querySelector("p").textContent = detail[1];
 }
 
-function submitContactForm(button) {
+async function submitContactForm(button) {
   const form = button.closest(".contact-form");
   form.classList.add("was-validated");
   if (!form.checkValidity()) {
     showToast("Please complete the contact form before sending.");
     return;
   }
-  const saccoName = new FormData(form).get("sacco");
-  showToast(`Inquiry received for ${saccoName}. Z-SACCO will contact you soon.`);
-  form.reset();
-  form.classList.remove("was-validated");
+  const data = new FormData(form);
+  const originalLabel = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = "Sending inquiry…";
+  try {
+    const result = await apiRequest("/api/inquiries", {
+      saccoName: data.get("sacco"),
+      email: data.get("email"),
+      phone: data.get("phone"),
+      message: data.get("message"),
+    });
+    showToast(result.message || "Your inquiry has been received.");
+    form.reset();
+    form.classList.remove("was-validated");
+  } catch (error) {
+    showToast(error.message || "We could not send your inquiry. Please try again.");
+  } finally {
+    button.disabled = false;
+    button.innerHTML = originalLabel;
+  }
 }
 
 function validatePassword(password) {
@@ -1334,7 +1350,6 @@ document.addEventListener("click", (event) => {
   if (event.target.closest("[data-attach-documents]")) showToast("Loan documents attached to the application package.");
   if (event.target.closest("[data-support]")) showToast("Support request submitted. A Z-SACCO officer will follow up.");
   if (event.target.closest("[data-create-access]")) createSaccoAccount(event.target.closest("[data-create-access]"));
-  if (event.target.closest("[data-contact-submit]")) submitContactForm(event.target.closest("[data-contact-submit]"));
   if (emailDownloadButton) {
     const form = emailDownloadButton.closest("form");
     downloadFile(`${emailDownloadButton.dataset.downloadEmail}-account-email.txt`, form.dataset.emailBody || "Z-SACCO account details");
@@ -1401,6 +1416,13 @@ document.addEventListener("input", (event) => {
 
 document.addEventListener("change", (event) => {
   if (event.target.matches("[data-kyc-file-input]")) addKycFiles(event.target);
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches(".contact-form")) return;
+  event.preventDefault();
+  const button = event.target.querySelector("[data-contact-submit]");
+  if (button && !button.disabled) submitContactForm(button);
 });
 
 document.addEventListener("mouseover", (event) => {

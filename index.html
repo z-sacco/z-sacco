@@ -90,15 +90,23 @@
 
         <section class="site-section contact-section" id="contact">
           <div class="contact-copy">
-            <p class="section-tag">Contact</p><h2>Let’s talk about your cooperative.</h2>
-            <p>Tell us what you want to improve and we’ll help you understand the best way to set up Z-SACCO.</p>
-            <div class="contact-details"><p><span>Email</span><strong>info@zsacco.coop</strong></p><p><span>Phone</span><strong>+256 700 000 000</strong></p><p><span>Office</span><strong>Kampala, Uganda</strong></p></div>
+            <p class="section-tag">Support centre</p><h2>Choose how you want to reach us.</h2>
+            <p>Ask a setup question, request a walkthrough, or talk to the Z-SACCO team through the channel that works best for you.</p>
+            <div class="support-grid">
+              <a class="support-card" href="mailto:info@zsacco.coop"><img src="assets/support/gmail-gold.png" alt="" /><span><small>EMAIL</small><strong>info@zsacco.coop</strong><em>Write to our team</em></span></a>
+              <a class="support-card" href="tel:+256700000000"><img src="assets/support/phone-gold.png" alt="" /><span><small>PHONE</small><strong>+256 700 000 000</strong><em>Call support</em></span></a>
+              <a class="support-card" href="https://wa.me/256700000000" target="_blank" rel="noopener noreferrer"><img src="assets/support/whatsapp-gold.png" alt="" /><span><small>WHATSAPP</small><strong>Chat with us</strong><em>Open WhatsApp</em></span></a>
+              <a class="support-card" href="https://www.google.com/maps/search/?api=1&amp;query=Kampala%2C%20Uganda" target="_blank" rel="noopener noreferrer"><img src="assets/support/maps-gold.png" alt="" /><span><small>LOCATION</small><strong>Kampala, Uganda</strong><em>Open directions</em></span></a>
+              <a class="support-card" href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer"><img src="assets/support/instagram-gold.png" alt="" /><span><small>INSTAGRAM</small><strong>Social updates</strong><em>Open Instagram</em></span></a>
+              <a class="support-card" href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer"><img src="assets/support/tiktok-gold.png" alt="" /><span><small>TIKTOK</small><strong>Tips &amp; guides</strong><em>Open TikTok</em></span></a>
+            </div>
           </div>
           <form class="contact-form">
-            <div class="field"><label>SACCO name</label><input name="sacco" placeholder="Your cooperative name" required /></div>
-            <div class="contact-row"><div class="field"><label>Email address</label><input name="email" type="email" placeholder="name@example.com" required /></div><div class="field"><label>Phone number</label><input name="phone" placeholder="+256..." required /></div></div>
-            <div class="field"><label>How can we help?</label><textarea name="message" placeholder="Tell us about your SACCO and what you want to improve" required></textarea></div>
-            <button class="site-primary" type="button" data-contact-submit>Send inquiry <span>→</span></button>
+            <div class="contact-form-heading"><p class="section-tag">Send a message</p><h3>Tell us what you need.</h3><span>Your request is saved securely for our support team.</span></div>
+            <div class="field"><label for="contactSacco">SACCO name</label><input id="contactSacco" name="sacco" placeholder="Your cooperative name" autocomplete="organization" minlength="2" maxlength="120" required /></div>
+            <div class="contact-row"><div class="field"><label for="contactEmail">Email address</label><input id="contactEmail" name="email" type="email" placeholder="name@example.com" autocomplete="email" maxlength="254" required /></div><div class="field"><label for="contactPhone">Phone number</label><input id="contactPhone" name="phone" type="tel" placeholder="+256..." autocomplete="tel" minlength="7" maxlength="30" required /></div></div>
+            <div class="field"><label for="contactMessage">How can we help?</label><textarea id="contactMessage" name="message" placeholder="Tell us about your SACCO and what you want to improve" minlength="10" maxlength="2000" required></textarea></div>
+            <button class="site-primary" type="submit" data-contact-submit>Send inquiry <span>→</span></button>
           </form>
         </section>
       </main>

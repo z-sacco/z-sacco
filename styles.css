@@ -4046,3 +4046,146 @@ textarea:focus {
   border-top: 1px solid #252821;
   background: #090a08;
 }
+
+/* Contact and support hub */
+.public-v2 .contact-section {
+  grid-template-columns: minmax(0, 1.08fr) minmax(430px, 0.92fr);
+  gap: clamp(42px, 6vw, 78px);
+}
+
+.support-grid {
+  margin-top: 36px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.support-card {
+  min-height: 105px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #30332c;
+  border-radius: 16px;
+  color: #eef0ea;
+  background:
+    radial-gradient(circle at 0 0, rgba(214, 168, 37, 0.12), transparent 42%),
+    #151712;
+  text-decoration: none;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.support-card::after {
+  content: "↗";
+  position: absolute;
+  top: 11px;
+  right: 12px;
+  color: #756225;
+  font-size: 12px;
+}
+
+.support-card:hover,
+.support-card:focus-visible {
+  border-color: #8a6f1e;
+  background-color: #1c1f18;
+  transform: translateY(-3px);
+}
+
+.support-card img {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.35));
+}
+
+.support-card span,
+.support-card small,
+.support-card strong,
+.support-card em {
+  display: block;
+}
+
+.support-card span {
+  min-width: 0;
+}
+
+.support-card small {
+  color: var(--site-gold-light);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.support-card strong {
+  margin-top: 5px;
+  overflow: hidden;
+  color: #f4f5f1;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-card em {
+  margin-top: 4px;
+  color: #888e83;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.public-v2 .contact-form {
+  position: sticky;
+  top: 110px;
+}
+
+.contact-form-heading {
+  margin-bottom: 4px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #30332c;
+}
+
+.contact-form-heading .section-tag {
+  margin-bottom: 8px;
+}
+
+.contact-form-heading h3 {
+  margin: 0;
+  color: #f5f6f2;
+  font-size: 29px;
+  letter-spacing: -0.035em;
+}
+
+.contact-form-heading > span {
+  margin-top: 8px;
+  display: block;
+  color: #91978c;
+  font-size: 11px;
+}
+
+.public-v2 .contact-form .site-primary:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+@media (max-width: 1100px) {
+  .public-v2 .contact-section {
+    grid-template-columns: 1fr;
+  }
+
+  .public-v2 .contact-form {
+    position: static;
+  }
+}
+
+@media (max-width: 620px) {
+  .support-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .support-card {
+    min-height: 92px;
+  }
+}

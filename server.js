@@ -77,6 +77,7 @@ function ensureDb() {
       sessions: [],
       passwordResets: [],
       outbox: [],
+      inquiries: [],
     });
   }
 }
@@ -85,7 +86,7 @@ function readDb() {
   ensureDb();
   const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
   let changed = false;
-  for (const collection of ["saccos", "admins", "members", "sessions", "passwordResets", "outbox", "accounts", "transactions", "loans", "memberDocuments"]) {
+  for (const collection of ["saccos", "admins", "members", "sessions", "passwordResets", "outbox", "inquiries", "accounts", "transactions", "loans", "memberDocuments"]) {
     if (!Array.isArray(db[collection])) {
       db[collection] = [];
       changed = true;
@@ -514,6 +515,45 @@ async function logout(req, res) {
   sendJson(res, 200, { message: "Logged out." });
 }
 
+async function submitInquiry(req, res) {
+  const input = await readBody(req);
+  const inquiry = {
+    saccoName: String(input.saccoName || "").trim(),
+    email: String(input.email || "").trim().toLowerCase(),
+    phone: String(input.phone || "").trim(),
+    message: String(input.message || "").trim(),
+  };
+
+  if (inquiry.saccoName.length < 2 || inquiry.saccoName.length > 120) {
+    return sendJson(res, 400, { error: "Enter a valid SACCO name." });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inquiry.email) || inquiry.email.length > 254) {
+    return sendJson(res, 400, { error: "Enter a valid email address." });
+  }
+  if (inquiry.phone.length < 7 || inquiry.phone.length > 30) {
+    return sendJson(res, 400, { error: "Enter a valid phone number." });
+  }
+  if (inquiry.message.length < 10 || inquiry.message.length > 2000) {
+    return sendJson(res, 400, { error: "Your message must be between 10 and 2,000 characters." });
+  }
+
+  if (hasSupabase()) {
+    const result = await supabaseRpc("api_submit_inquiry", inquiry);
+    return sendJson(res, 201, result);
+  }
+
+  const db = readDb();
+  const record = {
+    id: makeId("inquiry"),
+    ...inquiry,
+    status: "new",
+    createdAt: now(),
+  };
+  db.inquiries.push(record);
+  writeDb(db);
+  return sendJson(res, 201, { message: "Your inquiry has been received.", inquiryId: record.id });
+}
+
 async function appData(req, res) {
   const input = await readBody(req);
   if (hasSupabase()) {
@@ -721,6 +761,7 @@ async function requestHandler(req, res) {
     if (req.method === "POST" && url.pathname === "/api/auth/login") return login(req, res);
     if (req.method === "POST" && url.pathname === "/api/auth/forgot-password") return forgotPassword(req, res);
     if (req.method === "POST" && url.pathname === "/api/auth/logout") return logout(req, res);
+    if (req.method === "POST" && url.pathname === "/api/inquiries") return submitInquiry(req, res);
     if (req.method === "POST" && url.pathname === "/api/app-data") return appData(req, res);
     if (req.method === "POST" && url.pathname === "/api/members") return saveMember(req, res);
     if (req.method === "POST" && url.pathname === "/api/transactions") return postTransaction(req, res);

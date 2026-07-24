@@ -31,6 +31,13 @@ async function waitForServer() {
 
 (async () => {
   await waitForServer();
+  const inquiry = await request("/api/inquiries", {
+    saccoName: "Future Savers Cooperative",
+    email: "support@test.example",
+    phone: "+256700100199",
+    message: "Please help us set up our first Z-SACCO workspace.",
+  });
+  assert.equal(inquiry.message, "Your inquiry has been received.");
   const registration = await request("/api/saccos", {
     saccoName: "Test Cooperative", saccoPhone: "+256700100200", saccoEmail: "office@test.example",
     location: "Kampala", memberCount: "10", ownerName: "Test Owner", ownerPhone: "+256700100201",
@@ -68,7 +75,7 @@ async function waitForServer() {
   assert.ok(memberData.transactions.every((item) => item.memberId === member.id), "Members only receive their own transactions");
   assert.ok(memberData.loans.every((item) => item.memberId === member.id), "Members only receive their own loans");
   assert.equal(registration.sacco.name, "Test Cooperative");
-  console.log("Integration checks passed: registration, auth, members, accounts, transactions, loans, persistence, and member scoping.");
+  console.log("Integration checks passed: support inquiries, registration, auth, members, accounts, transactions, loans, persistence, and member scoping.");
 })().catch((error) => {
   console.error(error.stack || error);
   process.exitCode = 1;
