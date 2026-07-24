@@ -195,19 +195,6 @@
   scroll-margin-top: 105px;
 }
 
-.public-v2 .site-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.12;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px);
-  background-size: 54px 54px;
-  mask-image: linear-gradient(to right, transparent 3%, #000 42%, transparent 92%);
-}
-
 .public-v2 .hero-copy,
 .product-stage {
   position: relative;
