@@ -7,141 +7,143 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="public-site" id="publicSite">
+    <div class="public-site public-v2" id="publicSite">
       <header class="site-nav">
         <a class="brand site-brand" href="#home" aria-label="Z-SACCO home">
           <span class="brand-mark"><img src="assets/z-sacco-gold-mark.png" alt="" /></span>
-          <span>
-            <strong>Z-SACCO</strong>
-            <small>Management System</small>
-          </span>
+          <span><strong>Z-SACCO</strong><small>Cooperative banking, simplified</small></span>
         </a>
         <nav class="site-links" aria-label="Website navigation">
-          <a href="#features" data-site-link>Features</a>
+          <a href="#features" data-site-link>Platform</a>
           <a href="#how" data-site-link>How it works</a>
-          <a href="#plans" data-site-link>Access</a>
+          <a href="#plans" data-site-link>Portals</a>
           <a href="#contact" data-site-link>Contact</a>
         </nav>
         <div class="site-actions">
-          <button class="ghost-button" data-open-app="signin">Login</button>
-          <button class="primary-button" data-open-app="signup">Create SACCO account</button>
+          <button class="site-login" data-open-app="signin">Sign in</button>
+          <button class="site-primary" data-open-app="signup">Create an account <span aria-hidden="true">→</span></button>
         </div>
       </header>
 
       <main>
         <section class="site-hero" id="home">
           <div class="hero-copy">
-            <p class="eyebrow">Keep your members' money organized</p>
-            <h1>Elegant SACCO management for stronger financial futures.</h1>
-            <p>Z-SACCO brings member records, savings, loans, repayments, reports, and self-service access into one secure workspace built for financial cooperatives.</p>
+            <div class="hero-kicker"><span></span> Built for modern financial cooperatives</div>
+            <h1>Run your SACCO with <em>clarity.</em></h1>
+            <p>One dependable workspace for members, savings, loans, approvals, transactions, and reporting—designed around the way SACCO teams actually work.</p>
             <div class="hero-actions">
-              <button class="primary-button" data-open-app="signup">Start setup</button>
-              <button class="ghost-button" data-scroll-target="features">Explore features</button>
+              <button class="site-primary large" data-open-app="signup">Set up your SACCO <span aria-hidden="true">→</span></button>
+              <button class="site-text-button" data-open-app="signin"><span class="play-dot">▶</span> Open your portal</button>
             </div>
-            <div class="trust-row">
-              <span>Member portal</span>
-              <span>Loan workflows</span>
-              <span>Financial reports</span>
+            <div class="hero-proof">
+              <div><strong>One system</strong><span>for every branch</span></div>
+              <div><strong>Role-based</strong><span>staff and member access</span></div>
+              <div><strong>Live records</strong><span>from entry to report</span></div>
             </div>
           </div>
-          <div class="hero-visual" aria-hidden="true">
-            <img src="assets/z-sacco-gold-mark.png" alt="" />
-            <div class="hero-stat one"><strong>UGX 18.7B</strong><span>Total savings tracked</span></div>
-            <div class="hero-stat two"><strong>8,426</strong><span>Members managed</span></div>
-            <div class="orbit-line"></div>
+          <div class="product-stage" aria-label="Preview of the Z-SACCO dashboard">
+            <div class="stage-glow"></div>
+            <div class="dashboard-preview">
+              <div class="preview-sidebar">
+                <div class="preview-logo"><img src="assets/z-sacco-gold-mark.png" alt="" /><span>Z-SACCO</span></div>
+                <i class="active"></i><i></i><i></i><i></i><i></i>
+              </div>
+              <div class="preview-main">
+                <div class="preview-top"><div><small>OVERVIEW</small><strong>Good morning, Amina</strong></div><span>AK</span></div>
+                <div class="preview-metrics">
+                  <article><small>Total savings</small><strong>UGX 428.6M</strong><span class="up">↗ 8.4%</span></article>
+                  <article><small>Active members</small><strong>1,284</strong><span>Across 4 branches</span></article>
+                  <article><small>Loan portfolio</small><strong>UGX 96.2M</strong><span>92% performing</span></article>
+                </div>
+                <div class="preview-lower">
+                  <article class="preview-chart"><div><strong>Savings activity</strong><small>Last 7 months</small></div><div class="chart-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></article>
+                  <article class="preview-activity"><strong>Recent activity</strong><p><i></i><span>Deposit received<small>UGX 2,000,000</small></span></p><p><i></i><span>Loan approved<small>Business loan</small></span></p><p><i></i><span>Member added<small>Profile verified</small></span></p></article>
+                </div>
+              </div>
+            </div>
+            <div class="floating-note note-one"><span>✓</span><div><strong>Payment recorded</strong><small>Balance updated instantly</small></div></div>
+            <div class="floating-note note-two"><span>24/7</span><div><strong>Member access</strong><small>Balances, loans and history</small></div></div>
           </div>
         </section>
+        <section class="confidence-strip" aria-label="Z-SACCO platform benefits">
+          <p>One source of truth for your cooperative</p>
+          <div><span>Member records</span><i></i><span>Savings</span><i></i><span>Loans</span><i></i><span>Approvals</span><i></i><span>Reports</span></div>
+        </section>
 
-        <section class="site-section" id="features">
-          <div class="section-heading">
-            <p class="eyebrow">Complete SACCO operations</p>
-            <h2>Core tools for disciplined SACCO operations.</h2>
+        <section class="site-section features-v2" id="features">
+          <div class="section-intro">
+            <div><p class="section-tag">The platform</p><h2>Every daily operation, finally connected.</h2></div>
+            <p>Replace scattered spreadsheets, paper trails, and disconnected tools with one clean operating system your team can trust.</p>
           </div>
           <div class="feature-grid">
-            <article class="site-card" data-feature="members"><span class="stat-icon">★</span><h3>Member Management</h3><p>Register members, maintain KYC files, review profiles, and follow account activity with confidence.</p><button class="glass-link" type="button">View module</button></article>
-            <article class="site-card" data-feature="savings"><span class="stat-icon">◆</span><h3>Savings & Accounts</h3><p>Post deposits, process withdrawals, and keep account balances clear across every branch.</p><button class="glass-link" type="button">View module</button></article>
-            <article class="site-card" data-feature="loans"><span class="stat-icon">▲</span><h3>Loan Management</h3><p>Move applications through review, approval, schedules, repayments, and portfolio tracking.</p><button class="glass-link" type="button">View module</button></article>
-            <article class="site-card" data-feature="reports"><span class="stat-icon">●</span><h3>Reports & Statements</h3><p>Prepare summaries, statements, transaction histories, and cooperative performance reports.</p><button class="glass-link" type="button">View module</button></article>
+            <article class="site-card feature-large" data-feature="members"><div class="public-icon">01</div><span class="feature-label">MEMBERS</span><h3>A complete member record—not another file folder.</h3><p>Registration, KYC, accounts, savings, loans, and activity stay connected to one profile.</p><div class="member-stack"><b>AK</b><b>BO</b><b>CN</b><b>+8</b></div><button class="feature-link" type="button">Explore member management <span>→</span></button></article>
+            <article class="site-card" data-feature="savings"><div class="public-icon">02</div><span class="feature-label">SAVINGS</span><h3>Balances that update as work happens.</h3><p>Record deposits and withdrawals with a clear, traceable transaction history.</p><div class="mini-balance"><small>AVAILABLE BALANCE</small><strong>UGX 21,640,000</strong><span>Active account</span></div><button class="feature-link" type="button">Explore savings <span>→</span></button></article>
+            <article class="site-card" data-feature="loans"><div class="public-icon">03</div><span class="feature-label">CREDIT</span><h3>Move every loan forward with confidence.</h3><p>Applications, decisions, balances, and repayment progress in one disciplined workflow.</p><div class="loan-progress"><div><span>Portfolio performance</span><strong>92%</strong></div><i><b></b></i></div><button class="feature-link" type="button">Explore loans <span>→</span></button></article>
+            <article class="site-card feature-wide" data-feature="reports"><div><div class="public-icon">04</div><span class="feature-label">REPORTING</span><h3>Turn activity into answers.</h3><p>See the state of the SACCO, prepare statements, and follow financial performance without rebuilding reports by hand.</p><button class="feature-link" type="button">Explore reports <span>→</span></button></div><div class="report-preview"><small>MONTHLY SUMMARY</small><strong>UGX 38.4M</strong><div><i></i><i></i><i></i><i></i><i></i><i></i></div></div></article>
           </div>
           <div class="feature-detail" id="featureDetail">
-            <strong>Member Management</strong>
-            <p>See profiles, account history, savings, loans, and KYC information from one member record.</p>
-            <button class="primary-button" type="button" data-open-app="signup">Try this workflow</button>
-          </div>
-        </section>
-
-        <section class="site-section partner-section">
-          <div class="split-heading">
-            <h2>Your trusted partner for cooperative finance.</h2>
-            <p>Z-SACCO helps teams move from scattered books and manual follow-ups to a unified operational system designed for savings groups, credit teams, and member-facing service.</p>
-            <button class="ghost-button" data-scroll-target="contact">Talk to us</button>
+            <div><strong>Member Management</strong><p>See profiles, account history, savings, loans, and KYC information from one member record.</p></div>
+            <button class="site-primary" type="button" data-open-app="signup">Start with Z-SACCO <span>→</span></button>
           </div>
         </section>
 
         <section class="site-section process-section" id="how">
-          <div class="section-heading">
-            <p class="eyebrow">How it works</p>
-            <h2>A simple path from interest to active workspace.</h2>
+          <div class="section-intro">
+            <div><p class="section-tag">How it works</p><h2>From setup to daily operations, without the complexity.</h2></div>
+            <p>Your team gets a structured workspace while members get a focused portal containing only their own financial information.</p>
           </div>
-          <div class="process-grid">
-            <article data-scroll-target="features"><span>01</span><h3>Explore</h3><p>Understand the platform, modules, and value before entering the system.</p><button class="glass-link" type="button">See features</button></article>
-            <article data-open-app="signup"><span>02</span><h3>Request Access</h3><p>Submit a SACCO account request. Payment setup will be added in the next phase.</p><button class="glass-link" type="button">Create account</button></article>
-            <article data-open-app="signin"><span>03</span><h3>Operate</h3><p>Once activated, staff and members can begin using the management workspace.</p><button class="glass-link" type="button">Login</button></article>
-          </div>
-        </section>
-
-        <section class="site-section insight-section">
-          <div class="insight-visual">
-            <div class="mini-metric top"><strong>UGX 4,528 USD</strong><span>Average branch liquidity</span></div>
-            <div class="metric-path"><span></span><span></span><span></span></div>
-            <div class="mini-metric bottom"><strong>1,284 loans</strong><span>Portfolio visibility</span></div>
-          </div>
-          <div class="insight-copy">
-            <h2>Trusted platform anytime and anywhere.</h2>
-            <p>Staff can record operations from the back office while members monitor balances, transactions, and loan progress from a simple portal.</p>
-            <button class="primary-button" data-scroll-target="plans">Learn more</button>
+          <div class="process-v2">
+            <article><span>01</span><div><small>CREATE</small><h3>Set up the SACCO</h3><p>Register your cooperative, main branch, and administrator account.</p></div></article>
+            <article><span>02</span><div><small>ORGANIZE</small><h3>Add members and accounts</h3><p>Build verified member records and open the accounts they need.</p></div></article>
+            <article><span>03</span><div><small>OPERATE</small><h3>Run from one workspace</h3><p>Post activity, manage credit, and follow performance as it changes.</p></div></article>
           </div>
         </section>
 
-        <section class="site-section access-section" id="plans">
-          <div>
-            <p class="eyebrow">Access setup</p>
-            <h2>Create your SACCO account first. Payment will come later.</h2>
-            <p>For now, account creation captures your setup request and opens the onboarding flow. Online payment integration will be connected in a later phase.</p>
+        <section class="site-section portal-showcase" id="plans">
+          <div class="portal-copy">
+            <p class="section-tag">Two focused experiences</p>
+            <h2>The right information for every person.</h2>
+            <p>Staff receive the controls needed to run the SACCO. Members see a simpler, private view of their own savings, loans, and profile.</p>
+            <div class="portal-points">
+              <button class="portal-choice active" data-open-app="signin"><span>STAFF</span><strong>Back-office workspace</strong><small>Members, transactions, approvals and reporting</small></button>
+              <button class="portal-choice" data-open-app="signin"><span>MEMBERS</span><strong>Personal member portal</strong><small>Balances, transaction history and loan progress</small></button>
+            </div>
           </div>
-          <button class="primary-button" data-open-app="signup">Create SACCO account</button>
+          <div class="phone-stage" aria-hidden="true">
+            <div class="phone-shell">
+              <div class="phone-top"><img src="assets/z-sacco-gold-mark.png" alt="" /><span>Member portal</span><b>AK</b></div>
+              <small>MY TOTAL SAVINGS</small><h3>UGX 21,640,000</h3><div class="phone-cards"><span>Accounts<strong>2</strong></span><span>Loans<strong>1</strong></span></div>
+              <div class="phone-list"><strong>Recent activity</strong><p><i></i>Deposit <span>+ UGX 2.0M</span></p><p><i></i>Loan repayment <span>- UGX 620K</span></p><p><i></i>Share contribution <span>+ UGX 180K</span></p></div>
+            </div>
+            <div class="privacy-badge"><span>✓</span><strong>Private by design<small>Members only see their own records</small></strong></div>
+          </div>
+        </section>
+
+        <section class="site-section final-cta">
+          <div><p class="section-tag">Ready when you are</p><h2>Give your SACCO a clearer way to work.</h2><p>Create the main account, bring in your members, and start operating from one reliable workspace.</p></div>
+          <div><button class="site-primary large" data-open-app="signup">Create your SACCO account <span>→</span></button><button class="site-text-button light" data-scroll-target="contact">Talk to us first</button></div>
         </section>
 
         <section class="site-section contact-section" id="contact">
-          <div class="section-heading">
-            <p class="eyebrow">Contact Z-SACCO</p>
-            <h2>Talk to us about setting up your SACCO workspace.</h2>
+          <div class="contact-copy">
+            <p class="section-tag">Contact</p><h2>Let’s talk about your cooperative.</h2>
+            <p>Tell us what you want to improve and we’ll help you understand the best way to set up Z-SACCO.</p>
+            <div class="contact-details"><p><span>Email</span><strong>info@zsacco.coop</strong></p><p><span>Phone</span><strong>+256 700 000 000</strong></p><p><span>Office</span><strong>Kampala, Uganda</strong></p></div>
           </div>
-          <div class="contact-layout">
-            <div class="contact-cards">
-              <article class="site-card"><span class="stat-icon">☎</span><h3>Phone</h3><p>+256 700 000 000<br />+256 780 000 000</p></article>
-              <article class="site-card"><span class="stat-icon">✉</span><h3>Email</h3><p>info@zsacco.coop<br />support@zsacco.coop</p></article>
-              <article class="site-card"><span class="stat-icon">⌂</span><h3>Office</h3><p>Kampala, Uganda<br />Available for SACCO onboarding visits.</p></article>
-              <article class="site-card"><span class="stat-icon">◷</span><h3>Hours</h3><p>Monday - Friday<br />8:30 AM - 5:30 PM</p></article>
-            </div>
-            <form class="contact-form">
-              <div class="field"><label>SACCO name</label><input name="sacco" placeholder="Your cooperative name" required /></div>
-              <div class="field"><label>Email address</label><input name="email" type="email" placeholder="name@example.com" required /></div>
-              <div class="field"><label>Phone number</label><input name="phone" placeholder="+256..." required /></div>
-              <div class="field"><label>Message</label><textarea name="message" placeholder="Tell us what you want to set up" required></textarea></div>
-              <button class="primary-button" type="button" data-contact-submit>Send inquiry</button>
-            </form>
-          </div>
+          <form class="contact-form">
+            <div class="field"><label>SACCO name</label><input name="sacco" placeholder="Your cooperative name" required /></div>
+            <div class="contact-row"><div class="field"><label>Email address</label><input name="email" type="email" placeholder="name@example.com" required /></div><div class="field"><label>Phone number</label><input name="phone" placeholder="+256..." required /></div></div>
+            <div class="field"><label>How can we help?</label><textarea name="message" placeholder="Tell us about your SACCO and what you want to improve" required></textarea></div>
+            <button class="site-primary" type="button" data-contact-submit>Send inquiry <span>→</span></button>
+          </form>
         </section>
       </main>
 
       <footer class="site-footer">
-        <div class="brand">
-          <span class="brand-mark"><img src="assets/z-sacco-gold-mark.png" alt="" /></span>
-          <span><strong>Z-SACCO</strong><small>Management System</small></span>
-        </div>
-        <p>info@zsacco.coop · +256 700 000 000 · Kampala, Uganda</p>
-        <button class="ghost-button" data-open-app="signin">Staff login</button>
+        <div><div class="brand"><span class="brand-mark"><img src="assets/z-sacco-gold-mark.png" alt="" /></span><span><strong>Z-SACCO</strong><small>Cooperative banking, simplified</small></span></div><p>A focused management platform for SACCO teams and their members.</p></div>
+        <div class="footer-links"><strong>Platform</strong><a href="#features">Features</a><a href="#how">How it works</a><a href="#plans">Portals</a></div>
+        <div class="footer-links"><strong>Access</strong><button data-open-app="signin">Staff login</button><button data-open-app="signin">Member login</button><button data-open-app="signup">Create account</button></div>
+        <div class="footer-bottom"><span>© 2026 Z-SACCO. Kampala, Uganda.</span><button data-open-app="signin">Secure portal access →</button></div>
       </footer>
     </div>
 
