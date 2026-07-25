@@ -161,24 +161,70 @@ function toolbar(searchPlaceholder, filters = []) {
   </div>`;
 }
 
+const chartPalette = ["#e0aa17", "#f6d86d", "#987315", "#d0d4dc", "#6f5400"];
+
+function savingsMovementSeries(records, monthCount = 8) {
+  const now = new Date();
+  const months = Array.from({ length: monthCount }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - (monthCount - 1 - index), 1);
+    return {
+      key: `${date.getFullYear()}-${date.getMonth()}`,
+      month: date.toLocaleDateString("en-UG", { month: "short" }),
+      year: date.getFullYear(),
+      amount: 0,
+    };
+  });
+  const byMonth = new Map(months.map((item) => [item.key, item]));
+
+  records.forEach((transaction) => {
+    const date = new Date(transaction.date || transaction.createdAt);
+    if (Number.isNaN(date.getTime())) return;
+    const bucket = byMonth.get(`${date.getFullYear()}-${date.getMonth()}`);
+    if (!bucket) return;
+    const type = String(transaction.transactionType || "").toLowerCase();
+    const amount = Number(transaction.amount || 0);
+    if (/deposit|saving|contribution/.test(type)) bucket.amount += amount;
+    if (/withdrawal/.test(type)) bucket.amount -= amount;
+  });
+
+  return months;
+}
+
+function loanPortfolioSeries(records) {
+  const totals = records.reduce((map, loan) => {
+    const status = String(loan.status || "").toLowerCase();
+    if (["rejected", "closed"].includes(status)) return map;
+    const product = String(loan.product || "General loan").trim() || "General loan";
+    const amount = Number(loan.approvedAmount || 0) > 0
+      ? Number(loan.approvedAmount)
+      : Number(loan.requestedAmount || 0);
+    if (amount > 0) map[product] = (map[product] || 0) + amount;
+    return map;
+  }, {});
+  const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  if (sorted.length <= 4) return sorted;
+  return [...sorted.slice(0, 4), ["Other loans", sorted.slice(4).reduce((sum, entry) => sum + entry[1], 0)]];
+}
+
 function dashboard() {
   const totalSavings = accountRecords.reduce((sum, account) => sum + Number(account.balance || 0), 0);
   const activeLoans = loanRecords.filter((loan) => String(loan.status || "").toLowerCase() !== "rejected").length || loanRows.length;
   const approvedLoans = loanRecords.filter((loan) => String(loan.status || "").toLowerCase() === "performing").length;
   const recentToday = transactionRecords.filter((transaction) => formatDate(transaction.date) === todayLabel()).length;
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"];
-  const maxSavings = Math.max(totalSavings, 1);
-  const savingsBars = months.map((month, index) => {
-    const staged = totalSavings ? totalSavings * (0.45 + (index + 1) * 0.07) : (index + 1) * 1_000_000;
-    return { month, height: Math.min(190, Math.max(72, Math.round((staged / maxSavings) * 140))) };
+  const savingsBars = savingsMovementSeries(transactionRecords);
+  const maxMovement = Math.max(...savingsBars.map((item) => Math.abs(item.amount)), 1);
+  const hasSavingsActivity = savingsBars.some((item) => item.amount !== 0);
+  const productLegend = loanPortfolioSeries(loanRecords);
+  const productTotal = productLegend.reduce((sum, entry) => sum + entry[1], 0);
+  let donutCursor = 0;
+  const donutStops = productLegend.map((entry, index) => {
+    const start = donutCursor;
+    donutCursor += productTotal ? (entry[1] / productTotal) * 100 : 0;
+    return `${chartPalette[index]} ${start.toFixed(2)}% ${donutCursor.toFixed(2)}%`;
   });
-  const productCounts = loanRecords.reduce((map, loan) => {
-    const key = loan.product || "General";
-    map[key] = (map[key] || 0) + 1;
-    return map;
-  }, {});
-  const productTotal = Object.values(productCounts).reduce((sum, count) => sum + count, 0) || 1;
-  const productLegend = Object.entries(productCounts).slice(0, 4);
+  const donutBackground = productTotal
+    ? `conic-gradient(${donutStops.join(",")})`
+    : "#30332c";
   return `<div class="screen">
     <section class="grid stats-grid">
       ${moneyStat("Total Members", members.length.toLocaleString(), "Live member register", icons.users)}
@@ -188,15 +234,19 @@ function dashboard() {
     </section>
     <section class="grid two-col">
       <article class="card">
-        <div class="card-title"><h2>Savings Growth</h2><span class="pill">FY 2026</span></div>
-        <div class="chart">${savingsBars.map((item) => `<div class="bar"><span style="height:${item.height}px"></span>${item.month}</div>`).join("")}</div>
+        <div class="card-title"><div><h2>Savings Growth</h2><small class="chart-subtitle">Net deposits minus withdrawals</small></div><span class="pill">Live data</span></div>
+        <div class="chart ${hasSavingsActivity ? "" : "chart-no-data"}">${savingsBars.map((item) => {
+          const height = item.amount ? Math.max(8, Math.round((Math.abs(item.amount) / maxMovement) * 100)) : 2;
+          const signedAmount = `${item.amount >= 0 ? "+" : "-"}${formatUGX(Math.abs(item.amount), true)}`;
+          return `<div class="bar ${item.amount < 0 ? "negative" : ""} ${item.amount === 0 ? "is-empty" : ""}" title="${item.month} ${item.year}: ${signedAmount}"><strong>${item.amount ? signedAmount : "—"}</strong><span style="height:${height}%"></span>${item.month}</div>`;
+        }).join("")}</div>
       </article>
       <article class="card">
-        <div class="card-title"><h2>Loan Distribution</h2><span class="pill dark">Portfolio</span></div>
+        <div class="card-title"><div><h2>Loan Distribution</h2><small class="chart-subtitle">By active portfolio amount</small></div><span class="pill dark">Live data</span></div>
         <div class="donut-wrap">
-          <div class="donut"></div>
+          <div class="donut" style="background:${donutBackground}"><span>${productTotal ? formatUGX(productTotal, true) : "UGX 0"}<small>Total</small></span></div>
           <div class="legend">
-            ${(productLegend.length ? productLegend : [["No loans", 0]]).map(([name, count], index) => `<p><span style="background:${["var(--gold)","#ffe88a","#6f5400","#d0d4dc"][index] || "var(--gold)"}"></span>${name} ${Math.round((count / productTotal) * 100)}%</p>`).join("")}
+            ${(productLegend.length ? productLegend : [["No active loans", 0]]).map(([name, amount], index) => `<p><span style="background:${chartPalette[index] || chartPalette[0]}"></span><strong>${name}</strong><small>${formatUGX(amount, true)} · ${productTotal ? Math.round((amount / productTotal) * 100) : 0}%</small></p>`).join("")}
           </div>
         </div>
       </article>
