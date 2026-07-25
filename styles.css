@@ -206,6 +206,14 @@
   padding-top: 38px;
 }
 
+.public-v2 .process-section .section-intro {
+  grid-template-columns: minmax(0, 760px);
+}
+
+.public-v2 .footer-bottom {
+  justify-content: flex-start;
+}
+
 .hero-kicker {
   display: flex;
   align-items: center;
