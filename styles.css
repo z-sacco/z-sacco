@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap");
+
 :root {
   --ink: #100d08;
   --ink-2: #1b1710;
@@ -18,9 +20,9 @@
   --shadow: 0 18px 45px rgba(5, 29, 58, 0.14);
   --radius: 8px;
   --sidebar: 284px;
-  --font-body: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Manrope", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-display: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  --font-ui: "Aptos Display", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-ui: "Sora", "Manrope", "Segoe UI", sans-serif;
   font-family: var(--font-body);
 }
 
@@ -36,6 +38,7 @@
   --site-line: #dedbd1;
   color: var(--site-ink);
   background: var(--site-paper);
+  font-family: var(--font-body);
   overflow: clip;
 }
 
@@ -79,9 +82,12 @@
   object-fit: contain;
 }
 
-.public-v2 .site-brand strong {
+.public-v2 .site-brand strong,
+.public-v2 .site-footer .brand strong {
   color: #fff;
+  font-family: var(--font-ui);
   font-size: 15px;
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 
@@ -98,8 +104,10 @@
 
 .public-v2 .site-links a {
   color: #b9bdb4;
+  font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
 .public-v2 .site-links a:hover,
@@ -275,6 +283,8 @@
   max-width: 590px;
   color: #b9beb4;
   font-size: clamp(16px, 1.3vw, 18px);
+  font-weight: 400;
+  letter-spacing: -0.012em;
   line-height: 1.72;
 }
 
@@ -1265,6 +1275,8 @@
 .public-v2 .site-footer p {
   max-width: 340px;
   color: #888e83;
+  font-family: var(--font-body);
+  letter-spacing: -0.01em;
 }
 
 .footer-links {
@@ -1275,7 +1287,9 @@
 .footer-links strong {
   margin-bottom: 6px;
   color: #e8eae5;
+  font-family: var(--font-ui);
   font-size: 12px;
+  font-weight: 700;
 }
 
 .footer-links a,
@@ -1283,6 +1297,8 @@
   padding: 0;
   color: #8f958a;
   background: transparent;
+  font-family: var(--font-body);
+  font-weight: 500;
   text-decoration: none;
   text-align: left;
   font-size: 12px;
