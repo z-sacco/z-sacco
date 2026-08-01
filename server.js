@@ -706,11 +706,12 @@ async function postTransaction(req, res) {
       return sendJson(res, 400, { error: "Select an active loan belonging to this member." });
     }
     const principal = cleanAmount(loan.approvedAmount || loan.requestedAmount);
-    const outstanding = Math.max(0, principal - cleanAmount(loan.repaidAmount));
+    const totalPayable = principal * (1 + ((Number(loan.annualRate || 0) * Number(loan.termMonths || 0)) / 1200));
+    const outstanding = Math.max(0, totalPayable - cleanAmount(loan.repaidAmount));
     if (amount > outstanding) return sendJson(res, 400, { error: `Payment exceeds the outstanding loan balance of ${outstanding}.` });
     loan.repaidAmount = cleanAmount(loan.repaidAmount) + amount;
-    loan.progressPercent = principal > 0 ? Math.min(100, Math.round((loan.repaidAmount / principal) * 100)) : 0;
-    if (loan.repaidAmount >= principal) {
+    loan.progressPercent = totalPayable > 0 ? Math.min(100, Math.round((loan.repaidAmount / totalPayable) * 100)) : 0;
+    if (loan.repaidAmount >= totalPayable) {
       loan.status = "Closed";
       loan.nextDue = null;
     } else {
@@ -752,12 +753,14 @@ async function submitLoan(req, res) {
   if (amount <= 0) return sendJson(res, 400, { error: "Loan amount must be greater than zero." });
   const termMonths = Number(input.term);
   if (!Number.isInteger(termMonths) || termMonths < 1 || termMonths > 60) return sendJson(res, 400, { error: "Select a valid repayment term." });
+  const annualRate = Number(input.interestRate);
+  if (!Number.isFinite(annualRate) || annualRate < 0 || annualRate > 100) return sendJson(res, 400, { error: "Enter an annual interest rate between 0% and 100%." });
   if (!String(input.product || "").trim() || !String(input.purpose || "").trim()) return sendJson(res, 400, { error: "Loan product and purpose are required." });
   db.loans.push({
     id: makeId("loan"), loanNumber: makeId("LN").slice(0, 14).toUpperCase(), saccoId: session.saccoId,
     memberId: member.id, memberName: member.name, product: input.product || "Standard Loan",
     requestedAmount: amount, approvedAmount: 0, repaidAmount: 0, termMonths,
-    annualRate: loanRateForProduct(input.product), installmentAmount: 0, nextDue: null,
+    annualRate, installmentAmount: 0, nextDue: null,
     purpose: input.purpose, progressPercent: 0, status: "Pending", createdAt: now(),
   });
   writeDb(db);
@@ -782,8 +785,8 @@ async function decideLoan(req, res) {
   loan.approvedAmount = decision === "approve" ? loan.requestedAmount : 0;
   loan.repaidAmount = 0;
   loan.progressPercent = 0;
-  loan.annualRate = loanRateForProduct(loan.product);
-  loan.installmentAmount = decision === "approve" ? Math.ceil(loan.requestedAmount / Math.max(1, loan.termMonths)) : 0;
+  const totalPayable = loan.requestedAmount * (1 + ((Number(loan.annualRate || 0) * loan.termMonths) / 1200));
+  loan.installmentAmount = decision === "approve" ? Math.ceil(totalPayable / Math.max(1, loan.termMonths)) : 0;
   loan.nextDue = decision === "approve" ? addMonthsIso(null, 1) : null;
   loan.decidedAt = now();
   writeDb(db);
