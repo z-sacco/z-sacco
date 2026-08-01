@@ -2413,6 +2413,193 @@ textarea:focus {
   gap: 16px;
 }
 
+.account-combobox {
+  position: relative;
+}
+
+.account-combobox [data-account-search] {
+  padding-right: 48px;
+}
+
+.account-picker-toggle {
+  width: 42px;
+  height: calc(100% - 4px);
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+  border: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0 7px 7px 0;
+  color: #f2d36d;
+  background: #191812;
+  font-size: 20px;
+}
+
+.account-options {
+  width: 100%;
+  max-height: 260px;
+  overflow-y: auto;
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 30;
+  padding: 7px;
+  border: 1px solid rgba(242, 211, 109, 0.35);
+  border-radius: 10px;
+  background: #10110e;
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.48);
+}
+
+.account-options [data-account-option] {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  display: block;
+  border: 0;
+  border-radius: 7px;
+  color: #ecf0e8;
+  background: transparent;
+  text-align: left;
+}
+
+.account-options [data-account-option]:hover,
+.account-options [data-account-option]:focus-visible {
+  color: #161309;
+  background: linear-gradient(135deg, #f2d36d, #d6a825);
+}
+
+.account-option-empty {
+  padding: 12px;
+  color: #92998e;
+  font-size: 12px;
+  text-align: center;
+}
+
+.account-balance-card .amount-xl {
+  color: #f7fbff;
+}
+
+.transaction-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  filter: grayscale(0.5);
+}
+
+.transaction-table-head {
+  align-items: flex-end;
+  gap: 20px;
+}
+
+.transaction-table-head > div:first-child {
+  min-width: 190px;
+}
+
+.transaction-results-meta {
+  margin: 7px 0 0;
+  font-size: 12px;
+}
+
+.transaction-filter-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(230px, 1.6fr) repeat(3, minmax(150px, 1fr)) auto auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.transaction-filter-grid .field {
+  margin: 0;
+}
+
+.transaction-filter-grid label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.transaction-filter-button {
+  min-height: 44px;
+}
+
+.transaction-reset-button {
+  min-height: 44px;
+  padding-inline: 8px;
+}
+
+.transaction-history-table tbody tr.is-selected td {
+  background: rgba(215, 163, 28, 0.12);
+}
+
+.transaction-empty-row td {
+  padding: 34px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.transaction-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.transaction-detail-grid > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.transaction-detail-grid p {
+  margin: 0 0 7px;
+  font-size: 12px;
+}
+
+.transaction-detail-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.transaction-detail-grid .transaction-detail-note {
+  grid-column: 1 / -1;
+}
+
+.transaction-detail-empty {
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.transaction-detail-empty p {
+  margin: 6px 0 0;
+}
+
+@media (max-width: 1200px) {
+  .transaction-filter-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .transaction-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .transaction-filter-grid,
+  .transaction-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-detail-grid .transaction-detail-note {
+    grid-column: auto;
+  }
+}
+
 .full {
   grid-column: 1 / -1;
 }

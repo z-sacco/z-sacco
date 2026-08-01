@@ -674,15 +674,38 @@ async function postTransaction(req, res) {
   const amount = cleanAmount(input.amount);
   if (amount <= 0) return sendJson(res, 400, { error: "Amount must be greater than zero." });
   const type = String(input.transactionType || "").toLowerCase();
-  if (!['deposit', 'withdrawal'].includes(type)) return sendJson(res, 400, { error: "Transaction type must be Deposit or Withdrawal." });
+  const allowedTypes = ["deposit", "savings deposit", "share contribution", "loan repayment", "withdrawal"];
+  if (!allowedTypes.includes(type)) return sendJson(res, 400, { error: "Select a valid transaction type." });
+  if (!String(input.method || "").trim()) return sendJson(res, 400, { error: "Select a payment method." });
   if (type === "withdrawal" && amount > cleanAmount(account.balance)) return sendJson(res, 400, { error: "Insufficient account balance." });
-  account.balance = cleanAmount(account.balance) + (type === "deposit" ? amount : -amount);
+  if (["deposit", "savings deposit", "share contribution"].includes(type)) {
+    account.balance = cleanAmount(account.balance) + amount;
+  } else if (type === "withdrawal") {
+    account.balance = cleanAmount(account.balance) - amount;
+  }
   const member = db.members.find((item) => item.id === account.memberId);
+  if (type === "loan repayment") {
+    const loan = db.loans.find((item) => item.id === input.loanId && item.memberId === account.memberId && item.saccoId === session.saccoId);
+    if (!loan || ["rejected", "closed"].includes(String(loan.status || "").toLowerCase())) {
+      return sendJson(res, 400, { error: "Select an active loan belonging to this member." });
+    }
+    const principal = cleanAmount(loan.approvedAmount || loan.requestedAmount);
+    const progressIncrease = principal > 0 ? Math.ceil((amount / principal) * 100) : 0;
+    loan.progressPercent = Math.min(100, Number(loan.progressPercent || 0) + progressIncrease);
+    if (loan.progressPercent >= 100) loan.status = "Closed";
+  }
+  const transactionLabels = {
+    deposit: "Deposit",
+    "savings deposit": "Savings deposit",
+    "share contribution": "Share contribution",
+    "loan repayment": "Loan repayment",
+    withdrawal: "Withdrawal",
+  };
   db.transactions.push({
     id: makeId("transaction"), reference: makeId("TX").slice(0, 14).toUpperCase(),
     saccoId: session.saccoId, accountId: account.id, memberId: member?.id,
-    memberName: member?.name || "Member", transactionType: type === "deposit" ? "Deposit" : "Withdrawal",
-    amount, method: input.method || "Cash", narration: input.narration || "", status: "Completed", date: now(),
+    memberName: member?.name || "Member", transactionType: transactionLabels[type],
+    amount, method: input.method, narration: input.narration || "", status: "Completed", date: now(),
   });
   writeDb(db);
   return sendJson(res, 200, localAppData(db, session));
