@@ -1106,6 +1106,20 @@ function updateAccountBalanceDisplay(form, account) {
   populateLoanTargets(form, account);
 }
 
+function resetTransactionForm(form) {
+  form.reset();
+  form.classList.remove("was-validated");
+  form.querySelector('[name="account_id"]').value = "";
+  const picker = form.querySelector("[data-account-picker]");
+  if (picker) {
+    accountPickerOptions(picker).forEach((option) => { option.hidden = false; });
+    picker.querySelector(".account-no-match")?.remove();
+    closeAccountPicker(picker);
+  }
+  updateAccountBalanceDisplay(form, null);
+  form.querySelector("[data-print-receipt]").disabled = !lastPostedReceipt;
+}
+
 function selectAccountOption(option) {
   const picker = option.closest("[data-account-picker]");
   const form = picker.closest("form");
@@ -1184,11 +1198,7 @@ async function postTransaction(type, button) {
         method: posted.method,
         date: posted.date,
       } : null;
-      const refreshedAccount = accountRecords.find((item) => String(item.id) === String(account.id));
-      updateAccountBalanceDisplay(form, refreshedAccount);
-      form.querySelector("[data-print-receipt]").disabled = !lastPostedReceipt;
-      amountInput.value = "";
-      form.querySelector('[name="narration"]').value = "";
+      resetTransactionForm(form);
       showToast(`${transactionType} posted for ${member}. Receipt is ready to print.`);
       return;
     } catch (error) {
@@ -1203,10 +1213,7 @@ async function postTransaction(type, button) {
   transactions.unshift(row);
   selectedTransaction = row;
   lastPostedReceipt = { reference: row[0], member, type: transactionType, amount: numericAmount, method, date: todayLabel() };
-  updateAccountBalanceDisplay(form, account);
-  form.querySelector("[data-print-receipt]").disabled = false;
-  amountInput.value = "";
-  form.querySelector('[name="narration"]').value = "";
+  resetTransactionForm(form);
   showToast(`${transactionType} posted for ${member}. Receipt is ready to print.`);
 }
 
