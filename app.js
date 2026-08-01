@@ -80,6 +80,7 @@ let transactionRecords = [];
 let loanRecords = [];
 let staffRecords = [];
 let liveSacco = null;
+let lastPostedReceipt = null;
 let appSummary = {
   totalMembers: members.length,
   totalAccounts: accountRecords.length,
@@ -151,6 +152,16 @@ function renderTable(headers, rows, action = "View") {
 function avatarMarkup(name, photo, className = "avatar") {
   if (photo) return `<span class="${className} photo-avatar"><img src="${photo}" alt="${name || "Member"} photo" /></span>`;
   return `<span class="${className}">${String(name || "ZS").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span>`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  }[character]));
 }
 
 function toolbar(searchPlaceholder, filters = []) {
@@ -432,23 +443,29 @@ function memberProfileAdmin() {
 function accountsScreen(mode) {
   if (mode === "deposit" || mode === "withdrawal") {
     const deposit = mode === "deposit";
-    const selectedAccount = accountRecords[0] || {};
-    const accountOptions = accountRecords.map((account) => `<option value="${account.id}">${account.memberName} - ${account.accountNumber}</option>`).join("");
+    const accountOptions = accountRecords.map((account) => {
+      const label = `${account.memberName} - ${account.accountNumber}`;
+      return `<button type="button" role="option" data-account-option="${escapeHtml(account.id)}" data-member-id="${escapeHtml(account.memberId)}" data-search="${escapeHtml(label.toLowerCase())}" data-label="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+    }).join("");
+    const loanPurposeFields = deposit ? `
+      <div class="field"><label>Deposit type</label><select name="deposit_type" required><option value="" selected disabled></option><option value="Savings deposit">Savings deposit</option><option value="Share contribution">Share contribution</option><option value="Loan repayment">Loan repayment</option></select></div>
+      <div class="field loan-target-field hidden"><label>Loan to repay</label><select name="loan_id"><option value="" selected disabled></option></select></div>` : "";
     return `<div class="grid two-col">
       <article class="card">
         <div class="card-title"><h2>${deposit ? "Deposit Interface" : "Withdrawal Interface"}</h2><span class="pill ${deposit ? "success" : "warn"}">${deposit ? "Cash in" : "Cash out"}</span></div>
-        <form class="form-grid">
-          <div class="field full"><label>Member account</label><select name="account_id">${accountOptions || '<option value="">No accounts available</option>'}</select></div>
-          <div class="field"><label>Amount</label><input name="amount" value="2,000,000" /></div>
-          <div class="field"><label>Payment method</label><select name="method"><option>Cash</option><option>Mobile Money</option><option>Bank transfer</option></select></div>
-          <div class="field full"><label>Narration</label><textarea name="narration">${deposit ? "Monthly member savings deposit" : "Member withdrawal request approved at teller desk"}</textarea></div>
-          <div class="form-actions full"><button class="primary-button" type="button" data-post-transaction="${deposit ? "Deposit" : "Withdrawal"}">${deposit ? "Post deposit" : "Process withdrawal"}</button><button class="ghost-button" type="button" data-print-receipt>Print receipt</button></div>
+        <form class="form-grid transaction-form" data-transaction-mode="${mode}">
+          <div class="field full"><label>Member account</label><div class="account-combobox" data-account-picker><input name="account_search" data-account-search autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="accountOptions" /><input type="hidden" name="account_id" /><button class="account-picker-toggle" type="button" data-account-picker-toggle aria-label="Show member accounts">⌄</button><div class="account-options hidden" id="accountOptions" role="listbox">${accountOptions || '<div class="account-option-empty">No member accounts available</div>'}</div></div></div>
+          ${loanPurposeFields}
+          <div class="field"><label>Amount</label><input name="amount" inputmode="decimal" autocomplete="off" required /></div>
+          <div class="field"><label>Payment method</label><select name="method" required><option value="" selected disabled></option><option value="Cash">Cash</option><option value="Mobile Money">Mobile Money</option><option value="Bank transfer">Bank transfer</option><option value="Cheque">Cheque</option></select></div>
+          <div class="field full"><label>Narration</label><textarea name="narration"></textarea></div>
+          <div class="form-actions full"><button class="primary-button" type="button" data-post-transaction="${deposit ? "Deposit" : "Withdrawal"}">${deposit ? "Post deposit" : "Process withdrawal"}</button><button class="ghost-button" type="button" data-print-receipt disabled>Print receipt</button></div>
         </form>
       </article>
-      <article class="card">
+      <article class="card account-balance-card">
         <div class="card-title"><h2>Account Balance</h2><span class="pill success">Verified</span></div>
-        <p class="muted">Available balance</p><p class="amount-xl" style="color:var(--ink)">${formatUGX(selectedAccount.balance || 0)}</p>
-        <div class="summary-band"><div><p class="muted">Account</p><strong>${selectedAccount.accountNumber || "N/A"}</strong></div><div><p class="muted">Type</p><strong>${selectedAccount.accountType || "Savings"}</strong></div><div><p class="muted">Lien</p><strong>UGX 0</strong></div></div>
+        <p class="muted">Available balance</p><p class="amount-xl" data-account-balance>—</p>
+        <div class="summary-band"><div><p class="muted">Account</p><strong data-account-number>—</strong></div><div><p class="muted">Type</p><strong data-account-type>—</strong></div><div><p class="muted">Lien</p><strong>UGX 0</strong></div></div>
       </article>
     </div>`;
   }
@@ -488,8 +505,134 @@ function loansScreen(kind) {
   return `<div class="screen"><article class="table-card"><div class="table-head"><h2 class="section-title">Loan Management</h2>${toolbar("Search loans", ["Loan status", "Product"])}</div>${renderTable(["Loan ID","Member","Purpose","Amount","Progress","Status"], loanRows, "Open")}</article></div>`;
 }
 
+function transactionDetailsMarkup(record) {
+  if (!record) {
+    return `<div class="transaction-detail-empty">
+      <span class="stat-icon">${icons.receipt}</span>
+      <div><strong>No transaction selected</strong><p class="muted">Choose Details on a transaction to inspect its complete record.</p></div>
+    </div>`;
+  }
+
+  const account = accountRecords.find((item) => String(item.id) === String(record.accountId));
+  const details = [
+    ["Reference", record.reference || "Not assigned"],
+    ["Member", record.memberName || "Unknown member"],
+    ["Transaction type", record.transactionType || "Not recorded"],
+    ["Amount", formatUGX(record.amount || 0)],
+    ["Date", formatDate(record.date)],
+    ["Status", record.status || "Completed"],
+    ["Account", account?.accountNumber || "Not linked"],
+    ["Payment method", record.method || "Not recorded"],
+  ];
+
+  return `<div class="transaction-detail-grid">${details.map(([label, value]) => `<div>
+    <p class="muted">${escapeHtml(label)}</p>
+    <strong>${escapeHtml(value)}</strong>
+  </div>`).join("")}
+    <div class="transaction-detail-note">
+      <p class="muted">Narration</p>
+      <strong>${escapeHtml(record.narration || "No narration was added.")}</strong>
+    </div>
+  </div>`;
+}
+
+function transactionHistoryTable(records) {
+  const rows = records.map((record) => {
+    const searchable = [
+      record.reference,
+      record.memberName,
+      record.transactionType,
+      record.amount,
+      record.method,
+      record.narration,
+      record.status,
+    ].join(" ").toLowerCase();
+    const status = escapeHtml(record.status || "Completed");
+    return `<tr data-transaction-row
+      data-search="${escapeHtml(searchable)}"
+      data-type="${escapeHtml(record.transactionType || "")}"
+      data-member="${escapeHtml(record.memberId || "")}"
+      data-date="${escapeHtml(record.date || "")}">
+      <td>${escapeHtml(record.reference || "Pending")}</td>
+      <td>${escapeHtml(record.memberName || "Unknown member")}</td>
+      <td>${escapeHtml(record.transactionType || "Not recorded")}</td>
+      <td>${escapeHtml(formatUGX(record.amount || 0))}</td>
+      <td>${escapeHtml(formatDate(record.date))}</td>
+      <td><span class="pill success">${status}</span></td>
+      <td><button class="ghost-button" type="button" data-open-transaction="${escapeHtml(record.id)}">Details</button></td>
+    </tr>`;
+  }).join("");
+
+  return `<div class="table-wrap"><table class="transaction-history-table">
+    <thead><tr><th>Ref</th><th>Member</th><th>Type</th><th>Amount</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>
+      ${rows}
+      <tr class="transaction-empty-row${records.length ? " hidden" : ""}" data-transaction-empty>
+        <td colspan="7">No transactions have been recorded yet.</td>
+      </tr>
+    </tbody>
+  </table></div>`;
+}
+
 function transactionsScreen() {
-  return `<div class="screen"><article class="table-card"><div class="table-head"><h2 class="section-title">Full Transaction History</h2>${toolbar("Search transactions", ["Date range", "Transaction type", "Member"])}</div>${renderTable(["Ref", "Member", "Type", "Amount", "Date", "Status"], transactions, "Details")}</article><article class="card"><div class="card-title"><h2>Transaction Details</h2><span class="pill success">Audit logged</span></div><div class="form-grid"><div><p class="muted">Reference</p><strong>${selectedTransaction[0]}</strong></div><div><p class="muted">Member</p><strong>${selectedTransaction[1]}</strong></div><div><p class="muted">Type</p><strong>${selectedTransaction[2]}</strong></div><div><p class="muted">Amount</p><strong>${selectedTransaction[3]}</strong></div><div><p class="muted">Posted by</p><strong>Ruth Akello</strong></div><div><p class="muted">Channel</p><strong>Teller counter</strong></div></div></article></div>`;
+  const types = [...new Set(transactionRecords.map((record) => record.transactionType).filter(Boolean))].sort();
+  const memberMap = new Map(transactionRecords
+    .filter((record) => record.memberId && record.memberName)
+    .map((record) => [String(record.memberId), record.memberName]));
+  const memberOptions = [...memberMap.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const selectedRecord = selectedTransaction?.record || null;
+
+  return `<div class="screen">
+    <article class="table-card transaction-history-card">
+      <div class="table-head transaction-table-head">
+        <div>
+          <h2 class="section-title">Full Transaction History</h2>
+          <p class="muted transaction-results-meta"><span data-transaction-count>${transactionRecords.length}</span> live record${transactionRecords.length === 1 ? "" : "s"}</p>
+        </div>
+        <div class="transaction-filter-grid">
+          <div class="field transaction-search-field">
+            <label for="transactionSearch">Search</label>
+            <input id="transactionSearch" placeholder="Reference, member, method or narration" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="transactionDateFilter">Date</label>
+            <select id="transactionDateFilter" data-transaction-filter="date">
+              <option value="">All dates</option>
+              <option value="today">Today</option>
+              <option value="7-days">Last 7 days</option>
+              <option value="30-days">Last 30 days</option>
+              <option value="month">This month</option>
+              <option value="year">This year</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="transactionTypeFilter">Type</label>
+            <select id="transactionTypeFilter" data-transaction-filter="type">
+              <option value="">All transaction types</option>
+              ${types.map((type) => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label for="transactionMemberFilter">Member</label>
+            <select id="transactionMemberFilter" data-transaction-filter="member">
+              <option value="">All members</option>
+              ${memberOptions.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("")}
+            </select>
+          </div>
+          <button class="ghost-button transaction-filter-button" type="button" data-apply-transaction-filters>${icons.search} Filter</button>
+          <button class="text-button transaction-reset-button" type="button" data-reset-transaction-filters>Clear</button>
+        </div>
+      </div>
+      ${transactionHistoryTable(transactionRecords)}
+    </article>
+    <article class="card transaction-details-card">
+      <div class="card-title">
+        <h2>Transaction Details</h2>
+        ${selectedRecord ? '<span class="pill success">Live record</span>' : ""}
+      </div>
+      <div data-transaction-details>${transactionDetailsMarkup(selectedRecord)}</div>
+    </article>
+  </div>`;
 }
 
 function reportsScreen() {
@@ -713,7 +856,7 @@ function syncAppData(data) {
     staff.status || "Active",
   ], staff));
 
-  selectedTransaction = transactions[0] || selectedTransaction;
+  selectedTransaction = transactions[0] || null;
   selectedLoan = loanRows[0] || selectedLoan;
 }
 
@@ -839,36 +982,232 @@ function filterTable(input) {
   if (!visible) table.insertAdjacentHTML("afterend", '<div class="empty-state">No matching records found.</div>');
 }
 
+function transactionDateMatches(value, range) {
+  if (!range) return true;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const transactionDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  if (range === "today") return transactionDay.getTime() === startOfToday.getTime();
+  if (range === "7-days" || range === "30-days") {
+    const days = range === "7-days" ? 7 : 30;
+    const start = new Date(startOfToday);
+    start.setDate(start.getDate() - (days - 1));
+    return transactionDay >= start && transactionDay <= startOfToday;
+  }
+  if (range === "month") return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  if (range === "year") return date.getFullYear() === now.getFullYear();
+  return true;
+}
+
+function applyTransactionFilters() {
+  const card = document.querySelector(".transaction-history-card");
+  if (!card) return;
+  const search = card.querySelector("#transactionSearch")?.value.trim().toLowerCase() || "";
+  const dateRange = card.querySelector('[data-transaction-filter="date"]')?.value || "";
+  const type = card.querySelector('[data-transaction-filter="type"]')?.value || "";
+  const member = card.querySelector('[data-transaction-filter="member"]')?.value || "";
+  let visible = 0;
+
+  card.querySelectorAll("[data-transaction-row]").forEach((row) => {
+    const matches = (!search || row.dataset.search.includes(search))
+      && (!type || row.dataset.type === type)
+      && (!member || row.dataset.member === member)
+      && transactionDateMatches(row.dataset.date, dateRange);
+    row.hidden = !matches;
+    if (matches) visible += 1;
+  });
+
+  const empty = card.querySelector("[data-transaction-empty]");
+  if (empty) {
+    empty.classList.toggle("hidden", visible > 0);
+    empty.querySelector("td").textContent = transactionRecords.length
+      ? "No transactions match the selected filters."
+      : "No transactions have been recorded yet.";
+  }
+  const count = card.querySelector("[data-transaction-count]");
+  if (count) count.textContent = String(visible);
+}
+
+function resetTransactionFilters() {
+  const card = document.querySelector(".transaction-history-card");
+  if (!card) return;
+  const search = card.querySelector("#transactionSearch");
+  if (search) search.value = "";
+  card.querySelectorAll("[data-transaction-filter]").forEach((filter) => {
+    filter.value = "";
+  });
+  applyTransactionFilters();
+}
+
+function accountPickerOptions(picker) {
+  return [...picker.querySelectorAll("[data-account-option]")];
+}
+
+function openAccountPicker(picker) {
+  const options = picker.querySelector(".account-options");
+  const input = picker.querySelector("[data-account-search]");
+  if (!options || !input) return;
+  options.classList.remove("hidden");
+  input.setAttribute("aria-expanded", "true");
+}
+
+function closeAccountPicker(picker) {
+  picker.querySelector(".account-options")?.classList.add("hidden");
+  picker.querySelector("[data-account-search]")?.setAttribute("aria-expanded", "false");
+}
+
+function filterAccountPicker(input) {
+  const picker = input.closest("[data-account-picker]");
+  const query = input.value.trim().toLowerCase();
+  let matches = 0;
+  accountPickerOptions(picker).forEach((option) => {
+    const visible = !query || option.dataset.search.includes(query);
+    option.hidden = !visible;
+    if (visible) matches += 1;
+  });
+  picker.querySelector(".account-no-match")?.remove();
+  if (!matches) {
+    picker.querySelector(".account-options")?.insertAdjacentHTML("beforeend", '<div class="account-option-empty account-no-match">No matching member accounts</div>');
+  }
+  picker.querySelector('[name="account_id"]').value = "";
+  updateAccountBalanceDisplay(input.closest("form"), null);
+  openAccountPicker(picker);
+}
+
+function populateLoanTargets(form, account) {
+  const loanField = form.querySelector(".loan-target-field");
+  const loanSelect = form.querySelector('[name="loan_id"]');
+  if (!loanField || !loanSelect) return;
+  const repayment = form.querySelector('[name="deposit_type"]')?.value === "Loan repayment";
+  loanField.classList.toggle("hidden", !repayment);
+  loanSelect.required = repayment;
+  if (!repayment) {
+    loanSelect.innerHTML = '<option value="" selected disabled></option>';
+    return;
+  }
+  const matchingLoans = account ? loanRecords.filter((loan) => (
+    String(loan.memberId) === String(account.memberId)
+    && !["rejected", "closed"].includes(String(loan.status || "").toLowerCase())
+  )) : [];
+  loanSelect.innerHTML = '<option value="" selected disabled></option>'
+    + (matchingLoans.length
+      ? matchingLoans.map((loan) => `<option value="${escapeHtml(loan.id)}">${escapeHtml(`${loan.loanNumber} - ${loan.product || "Loan"} - ${formatUGX(loan.approvedAmount || loan.requestedAmount || 0)}`)}</option>`).join("")
+      : '<option value="" disabled>No active loans for this member</option>');
+}
+
+function updateAccountBalanceDisplay(form, account) {
+  const layout = form?.closest(".two-col");
+  if (!layout) return;
+  layout.querySelector("[data-account-balance]").textContent = account ? formatUGX(account.balance || 0) : "—";
+  layout.querySelector("[data-account-number]").textContent = account?.accountNumber || "—";
+  layout.querySelector("[data-account-type]").textContent = account?.accountType || "—";
+  populateLoanTargets(form, account);
+}
+
+function selectAccountOption(option) {
+  const picker = option.closest("[data-account-picker]");
+  const form = picker.closest("form");
+  const accountId = option.dataset.accountOption;
+  const account = accountRecords.find((item) => String(item.id) === String(accountId));
+  picker.querySelector('[name="account_id"]').value = accountId;
+  picker.querySelector("[data-account-search]").value = option.dataset.label;
+  accountPickerOptions(picker).forEach((item) => { item.hidden = false; });
+  closeAccountPicker(picker);
+  updateAccountBalanceDisplay(form, account);
+}
+
+function printPostedReceipt() {
+  if (!lastPostedReceipt) {
+    showToast("Post the transaction before printing a receipt.");
+    return;
+  }
+  downloadFile("z-sacco-receipt.txt", `Z-SACCO Receipt
+Generated: ${formatDate(lastPostedReceipt.date || new Date())}
+Reference: ${lastPostedReceipt.reference}
+Member: ${lastPostedReceipt.member}
+Transaction: ${lastPostedReceipt.type}
+Amount: ${formatUGX(lastPostedReceipt.amount || 0)}
+Payment method: ${lastPostedReceipt.method || "Not specified"}`);
+}
+
 async function postTransaction(type, button) {
   const form = button.closest("form");
-  const accountSelect = form.querySelector('[name="account_id"]');
-  const account = accountRecords.find((item) => String(item.id) === String(accountSelect.value));
-  const amount = form.querySelector('[name="amount"]').value.trim() || "0";
-  const member = account?.memberName || accountSelect.selectedOptions[0]?.textContent.split(" - ")[0] || "Member";
+  const accountId = form.querySelector('[name="account_id"]')?.value || "";
+  const account = accountRecords.find((item) => String(item.id) === String(accountId));
+  const amountInput = form.querySelector('[name="amount"]');
+  const amount = amountInput.value.trim();
+  const numericAmount = Number(amount.replace(/[^0-9.]/g, ""));
+  const method = form.querySelector('[name="method"]')?.value || "";
+  const depositType = form.querySelector('[name="deposit_type"]')?.value || "";
+  const transactionType = type === "Deposit" ? depositType : "Withdrawal";
+  const loanId = form.querySelector('[name="loan_id"]')?.value || "";
+  const member = account?.memberName || "Member";
+  form.classList.add("was-validated");
+  if (!account) {
+    showToast("Select a member account before posting.");
+    form.querySelector("[data-account-search]")?.focus();
+    return;
+  }
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    showToast("Enter a deposit amount greater than zero.");
+    amountInput.focus();
+    return;
+  }
+  if (!method || (type === "Deposit" && !depositType)) {
+    showToast("Select the deposit type and payment method.");
+    return;
+  }
+  if (transactionType === "Loan repayment" && !loanId) {
+    showToast("Select the loan this payment should repay.");
+    return;
+  }
   if (authToken && account?.id && !String(account.id).startsWith("demo-")) {
     try {
       const data = await apiRequest("/api/transactions", {
         token: authToken,
         accountId: account.id,
-        transactionType: type,
+        transactionType,
+        loanId,
         amount,
-        method: form.querySelector('[name="method"]').value,
+        method,
         narration: form.querySelector('[name="narration"]').value,
       });
       syncAppData(data);
-      showToast(`${type} posted for ${member}. Dashboard data is updated.`);
-      setAdminScreen("transactions");
+      const posted = transactionRecords[0];
+      lastPostedReceipt = posted ? {
+        reference: posted.reference,
+        member: posted.memberName,
+        type: posted.transactionType,
+        amount: posted.amount,
+        method: posted.method,
+        date: posted.date,
+      } : null;
+      const refreshedAccount = accountRecords.find((item) => String(item.id) === String(account.id));
+      updateAccountBalanceDisplay(form, refreshedAccount);
+      form.querySelector("[data-print-receipt]").disabled = !lastPostedReceipt;
+      amountInput.value = "";
+      form.querySelector('[name="narration"]').value = "";
+      showToast(`${transactionType} posted for ${member}. Receipt is ready to print.`);
       return;
     } catch (error) {
-      showToast(error.message || `${type} could not be posted.`);
+      showToast(error.message || `${transactionType} could not be posted.`);
       return;
     }
   }
-  const row = [nextRef("TX"), member, type, `UGX ${amount}`, todayLabel(), type === "Deposit" ? "Completed" : "Approved"];
+  if (transactionType !== "Loan repayment") {
+    account.balance = Number(account.balance || 0) + (transactionType === "Withdrawal" ? -numericAmount : numericAmount);
+  }
+  const row = [nextRef("TX"), member, transactionType, formatUGX(numericAmount), todayLabel(), transactionType === "Withdrawal" ? "Approved" : "Completed"];
   transactions.unshift(row);
   selectedTransaction = row;
-  showToast(`${type} posted for ${member}. Transaction ${row[0]} is now in history.`);
-  setAdminScreen("transactions");
+  lastPostedReceipt = { reference: row[0], member, type: transactionType, amount: numericAmount, method, date: todayLabel() };
+  updateAccountBalanceDisplay(form, account);
+  form.querySelector("[data-print-receipt]").disabled = false;
+  amountInput.value = "";
+  form.querySelector('[name="narration"]').value = "";
+  showToast(`${transactionType} posted for ${member}. Receipt is ready to print.`);
 }
 
 async function saveMember(button) {
@@ -1347,6 +1686,41 @@ document.addEventListener("click", (event) => {
   const uploadKycButton = event.target.closest("[data-upload-kyc]");
   const removeKycButton = event.target.closest("[data-remove-kyc]");
   const togglePasswordButton = event.target.closest("[data-toggle-password]");
+  const accountPickerToggle = event.target.closest("[data-account-picker-toggle]");
+  const accountOption = event.target.closest("[data-account-option]");
+  const openTransactionButton = event.target.closest("[data-open-transaction]");
+  const applyTransactionFiltersButton = event.target.closest("[data-apply-transaction-filters]");
+  const resetTransactionFiltersButton = event.target.closest("[data-reset-transaction-filters]");
+  if (openTransactionButton) {
+    const record = transactionRecords.find((item) => String(item.id) === String(openTransactionButton.dataset.openTransaction));
+    if (record) {
+      selectedTransaction = transactions.find((row) => String(row.record?.id) === String(record.id)) || rowWithRecord([
+        record.reference,
+        record.memberName,
+        record.transactionType,
+        formatUGX(record.amount || 0),
+        formatDate(record.date),
+        record.status || "Completed",
+      ], record);
+      document.querySelector("[data-transaction-details]").innerHTML = transactionDetailsMarkup(record);
+      document.querySelector(".transaction-details-card .card-title")?.querySelector(".pill")?.remove();
+      document.querySelector(".transaction-details-card .card-title")?.insertAdjacentHTML("beforeend", '<span class="pill success">Live record</span>');
+      document.querySelectorAll("[data-transaction-row]").forEach((row) => row.classList.remove("is-selected"));
+      openTransactionButton.closest("tr")?.classList.add("is-selected");
+      showToast(`Opened transaction ${record.reference}.`);
+    }
+  }
+  if (applyTransactionFiltersButton) applyTransactionFilters();
+  if (resetTransactionFiltersButton) resetTransactionFilters();
+  if (accountPickerToggle) {
+    const picker = accountPickerToggle.closest("[data-account-picker]");
+    if (picker.querySelector(".account-options").classList.contains("hidden")) openAccountPicker(picker);
+    else closeAccountPicker(picker);
+  }
+  if (accountOption) selectAccountOption(accountOption);
+  document.querySelectorAll("[data-account-picker]").forEach((picker) => {
+    if (!picker.contains(event.target)) closeAccountPicker(picker);
+  });
   if (openAppButton) openSystemAuth(openAppButton.dataset.openApp);
   if (scrollButton) scrollToSection(scrollButton.dataset.scrollTarget);
   if (featureCard) setFeatureDetail(featureCard);
@@ -1396,7 +1770,7 @@ document.addEventListener("click", (event) => {
   if (saveMemberButton) saveMember(saveMemberButton);
   if (submitLoanButton) submitLoan(submitLoanButton);
   if (loanDecisionButton) decideLoan(loanDecisionButton.dataset.loanDecision);
-  if (event.target.closest("[data-print-receipt]")) downloadFile("z-sacco-receipt.txt", `Z-SACCO Receipt\nGenerated: ${todayLabel()}\nReference: ${selectedTransaction[0]}\nMember: ${selectedTransaction[1]}\nAmount: ${selectedTransaction[3]}`);
+  if (event.target.closest("[data-print-receipt]")) printPostedReceipt();
   if (event.target.closest("[data-attach-documents]")) showToast("Loan documents attached to the application package.");
   if (event.target.closest("[data-support]")) showToast("Support request submitted. A Z-SACCO officer will follow up.");
   if (event.target.closest("[data-create-access]")) createSaccoAccount(event.target.closest("[data-create-access]"));
@@ -1462,10 +1836,25 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("input", (event) => {
   if (event.target.matches("#tableSearch")) filterTable(event.target);
+  if (event.target.matches("[data-account-search]")) filterAccountPicker(event.target);
+  if (event.target.matches("#transactionSearch")) applyTransactionFilters();
 });
 
 document.addEventListener("change", (event) => {
   if (event.target.matches("[data-kyc-file-input]")) addKycFiles(event.target);
+  if (event.target.matches("[data-transaction-filter]")) applyTransactionFilters();
+  if (event.target.matches('[name="deposit_type"]')) {
+    const form = event.target.closest("form");
+    const accountId = form.querySelector('[name="account_id"]')?.value;
+    const account = accountRecords.find((item) => String(item.id) === String(accountId));
+    populateLoanTargets(form, account);
+  }
+});
+
+document.addEventListener("focusin", (event) => {
+  if (event.target.matches("[data-account-search]")) {
+    filterAccountPicker(event.target);
+  }
 });
 
 document.addEventListener("submit", (event) => {
