@@ -174,6 +174,22 @@ function cleanAmount(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function loanRateForProduct(product) {
+  const rates = {
+    "business expansion": 14,
+    agriculture: 12,
+    education: 10,
+    emergency: 12,
+  };
+  return rates[String(product || "").trim().toLowerCase()] || 14;
+}
+
+function addMonthsIso(value, months = 1) {
+  const date = value ? new Date(value) : new Date();
+  date.setMonth(date.getMonth() + months);
+  return date.toISOString();
+}
+
 function authPayload(input) {
   return { ...input, token: input.token || input.authToken || "" };
 }
@@ -690,9 +706,16 @@ async function postTransaction(req, res) {
       return sendJson(res, 400, { error: "Select an active loan belonging to this member." });
     }
     const principal = cleanAmount(loan.approvedAmount || loan.requestedAmount);
-    const progressIncrease = principal > 0 ? Math.ceil((amount / principal) * 100) : 0;
-    loan.progressPercent = Math.min(100, Number(loan.progressPercent || 0) + progressIncrease);
-    if (loan.progressPercent >= 100) loan.status = "Closed";
+    const outstanding = Math.max(0, principal - cleanAmount(loan.repaidAmount));
+    if (amount > outstanding) return sendJson(res, 400, { error: `Payment exceeds the outstanding loan balance of ${outstanding}.` });
+    loan.repaidAmount = cleanAmount(loan.repaidAmount) + amount;
+    loan.progressPercent = principal > 0 ? Math.min(100, Math.round((loan.repaidAmount / principal) * 100)) : 0;
+    if (loan.repaidAmount >= principal) {
+      loan.status = "Closed";
+      loan.nextDue = null;
+    } else {
+      loan.nextDue = addMonthsIso(loan.nextDue, 1);
+    }
   }
   const transactionLabels = {
     deposit: "Deposit",
@@ -727,11 +750,15 @@ async function submitLoan(req, res) {
   if (!member) return sendJson(res, 404, { error: "Member not found." });
   const amount = cleanAmount(input.amount);
   if (amount <= 0) return sendJson(res, 400, { error: "Loan amount must be greater than zero." });
+  const termMonths = Number(input.term);
+  if (!Number.isInteger(termMonths) || termMonths < 1 || termMonths > 60) return sendJson(res, 400, { error: "Select a valid repayment term." });
+  if (!String(input.product || "").trim() || !String(input.purpose || "").trim()) return sendJson(res, 400, { error: "Loan product and purpose are required." });
   db.loans.push({
     id: makeId("loan"), loanNumber: makeId("LN").slice(0, 14).toUpperCase(), saccoId: session.saccoId,
     memberId: member.id, memberName: member.name, product: input.product || "Standard Loan",
-    requestedAmount: amount, approvedAmount: 0, termMonths: Number(input.term) || 12,
-    purpose: input.purpose || "", progressPercent: 0, status: "Pending", createdAt: now(),
+    requestedAmount: amount, approvedAmount: 0, repaidAmount: 0, termMonths,
+    annualRate: loanRateForProduct(input.product), installmentAmount: 0, nextDue: null,
+    purpose: input.purpose, progressPercent: 0, status: "Pending", createdAt: now(),
   });
   writeDb(db);
   return sendJson(res, 200, localAppData(db, session));
@@ -750,9 +777,14 @@ async function decideLoan(req, res) {
   if (!loan) return sendJson(res, 404, { error: "Loan not found." });
   const decision = String(input.decision || "").toLowerCase();
   if (!['approve', 'reject'].includes(decision)) return sendJson(res, 400, { error: "Decision must be approve or reject." });
+  if (loan.status !== "Pending") return sendJson(res, 409, { error: "Only pending loan applications can be decided." });
   loan.status = decision === "approve" ? "Performing" : "Rejected";
   loan.approvedAmount = decision === "approve" ? loan.requestedAmount : 0;
-  loan.progressPercent = decision === "approve" ? 5 : 0;
+  loan.repaidAmount = 0;
+  loan.progressPercent = 0;
+  loan.annualRate = loanRateForProduct(loan.product);
+  loan.installmentAmount = decision === "approve" ? Math.ceil(loan.requestedAmount / Math.max(1, loan.termMonths)) : 0;
+  loan.nextDue = decision === "approve" ? addMonthsIso(null, 1) : null;
   loan.decidedAt = now();
   writeDb(db);
   return sendJson(res, 200, localAppData(db, session));

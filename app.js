@@ -141,8 +141,8 @@ function renderTable(headers, rows, action = "View") {
     <thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}<th>Action</th></tr></thead>
     <tbody>${rows.map((row) => `<tr>${row.map((cell) => {
       const status = String(cell).toLowerCase();
-      if (["active", "completed", "approved", "posted", "performing"].includes(status)) return `<td><span class="pill success">${cell}</span></td>`;
-      if (["review", "watch", "suspended"].includes(status)) return `<td><span class="pill warn">${cell}</span></td>`;
+      if (["active", "completed", "approved", "posted", "performing", "closed"].includes(status)) return `<td><span class="pill success">${cell}</span></td>`;
+      if (["review", "watch", "pending", "suspended"].includes(status)) return `<td><span class="pill warn">${cell}</span></td>`;
       if (String(cell).includes("%")) return `<td><div class="progress"><span style="width:${cell}"></span></div><small>${cell}</small></td>`;
       return `<td>${cell}</td>`;
     }).join("")}<td><button class="ghost-button table-action">${action}</button></td></tr>`).join("")}</tbody>
@@ -219,7 +219,7 @@ function loanPortfolioSeries(records) {
 
 function dashboard() {
   const totalSavings = accountRecords.reduce((sum, account) => sum + Number(account.balance || 0), 0);
-  const activeLoans = loanRecords.filter((loan) => String(loan.status || "").toLowerCase() !== "rejected").length || loanRows.length;
+  const activeLoans = loanRecords.filter((loan) => !["rejected", "closed"].includes(String(loan.status || "").toLowerCase())).length;
   const approvedLoans = loanRecords.filter((loan) => String(loan.status || "").toLowerCase() === "performing").length;
   const recentToday = transactionRecords.filter((transaction) => formatDate(transaction.date) === todayLabel()).length;
   const savingsBars = savingsMovementSeries(transactionRecords);
@@ -480,27 +480,80 @@ function accountsScreen(mode) {
   return `<div class="screen"><article class="table-card"><div class="table-head"><h2 class="section-title">Savings Accounts</h2>${toolbar("Search accounts", ["Account type", "Branch"])}</div>${renderTable(["Account", "Member", "Type", "Balance", "Last Activity", "Status"], accountRows)}</article></div>`;
 }
 
+function loanPrincipal(loan) {
+  return Number(loan?.approvedAmount || loan?.requestedAmount || 0);
+}
+
+function loanRepaid(loan) {
+  return Math.min(loanPrincipal(loan), Number(loan?.repaidAmount || 0));
+}
+
+function loanOutstanding(loan) {
+  return Math.max(0, loanPrincipal(loan) - loanRepaid(loan));
+}
+
+function loanProgress(loan) {
+  const principal = loanPrincipal(loan);
+  return principal > 0 ? Math.min(100, Math.round((loanRepaid(loan) / principal) * 100)) : 0;
+}
+
+function loanInstallment(loan) {
+  return Number(loan?.installmentAmount || (loanPrincipal(loan) / Math.max(1, Number(loan?.termMonths || 1))) || 0);
+}
+
+function addMonths(value, months) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return null;
+  date.setMonth(date.getMonth() + months);
+  return date;
+}
+
+function loanScheduleMarkup(loan, count = 3) {
+  if (!loan?.id || ["Pending", "Rejected"].includes(loan.status)) {
+    return '<div class="empty-state">The repayment schedule will be created when this loan is approved.</div>';
+  }
+  if (loan.status === "Closed") {
+    return '<div class="empty-state">This loan has been fully repaid and closed.</div>';
+  }
+  const remaining = loanOutstanding(loan);
+  const installment = loanInstallment(loan);
+  const payments = Math.min(count, Math.max(1, Math.ceil(remaining / Math.max(1, installment))));
+  return Array.from({ length: payments }, (_, index) => {
+    const dueDate = addMonths(loan.nextDue || new Date(), index);
+    const dueAmount = Math.min(installment, Math.max(0, remaining - (installment * index)));
+    return `<div class="schedule-item"><span class="status-dot ${index ? "blue" : "warn"}"></span><div><strong>${formatUGX(dueAmount)}</strong><br><small>${dueDate ? formatDate(dueDate) : "Not scheduled"}</small></div><span class="pill ${index ? "dark" : "warn"}">${index ? "Upcoming" : "Next due"}</span></div>`;
+  }).join("");
+}
+
 function loansScreen(kind) {
   if (kind === "application") {
     const memberOptions = memberRecords.map((member) => `<option value="${member.id}">${member.name} - ${member.memberNumber}</option>`).join("");
     return `<div class="screen"><article class="card"><div class="card-title"><h2>Loan Application Form</h2><span class="pill">Credit scoring</span></div>
-      <form class="form-grid">
-        <div class="field"><label>Member</label><select name="member_id">${memberOptions || '<option value="">No members available</option>'}</select></div>
-        <div class="field"><label>Loan product</label><select name="product"><option>Business Expansion</option><option>Agriculture</option><option>Education</option><option>Emergency</option></select></div>
-        <div class="field"><label>Requested amount</label><input name="amount" value="12,000,000" /></div>
-        <div class="field"><label>Term</label><select name="term"><option>18 months</option><option>24 months</option><option>12 months</option></select></div>
-        <div class="field full"><label>Purpose</label><textarea name="purpose">Purchase inventory and expand retail outlet.</textarea></div>
+      <form class="form-grid loan-application-form">
+        <div class="field"><label>Member</label><select name="member_id" required><option value="" selected disabled></option>${memberOptions || '<option value="" disabled>No members available</option>'}</select></div>
+        <div class="field"><label>Loan product</label><select name="product" required><option value="" selected disabled></option><option>Business Expansion</option><option>Agriculture</option><option>Education</option><option>Emergency</option></select></div>
+        <div class="field"><label>Requested amount</label><input name="amount" inputmode="decimal" autocomplete="off" required /></div>
+        <div class="field"><label>Repayment term</label><select name="term" required><option value="" selected disabled></option><option value="6">6 months</option><option value="12">12 months</option><option value="18">18 months</option><option value="24">24 months</option><option value="36">36 months</option></select></div>
+        <div class="field full"><label>Purpose</label><textarea name="purpose" required></textarea></div>
         <div class="form-actions full"><button class="primary-button" type="button" data-submit-loan>Submit application</button><button class="ghost-button" type="button" data-attach-documents>Attach documents</button></div>
       </form></article></div>`;
   }
   if (kind === "approval") {
-    return `<div class="screen"><div class="grid three-col">${moneyStat("Pending Review", loanRows.filter((loan) => loan[5] === "Watch").length, "Needs decision", icons.file)}${moneyStat("Approved", String(loanRows.filter((loan) => loan[5] === "Performing").length), "Live approvals", icons.shield)}${moneyStat("Rejected", String(loanRows.filter((loan) => loan[5] === "Rejected").length), "Policy checks", icons.loan)}</div><article class="table-card"><div class="table-head"><h2 class="section-title">Loan Approval Queue</h2>${toolbar("Search applications", ["Risk grade", "Loan product"])}</div>${renderTable(["Loan ID","Member","Purpose","Amount","Progress","Status"], loanRows, "Decide")}</article></div>`;
+    return `<div class="screen"><div class="grid three-col">${moneyStat("Pending Review", String(loanRows.filter((loan) => loan[5] === "Pending").length), "Needs decision", icons.file)}${moneyStat("Active Loans", String(loanRows.filter((loan) => loan[5] === "Performing").length), "Currently repaying", icons.shield)}${moneyStat("Closed / Rejected", String(loanRows.filter((loan) => ["Closed", "Rejected"].includes(loan[5])).length), "Completed decisions", icons.loan)}</div><article class="table-card"><div class="table-head"><h2 class="section-title">Loan Approval Queue</h2>${toolbar("Search applications", ["Loan status", "Loan product"])}</div>${renderTable(["Loan ID","Member","Purpose","Amount","Progress","Status"], loanRows, "Open")}</article></div>`;
   }
   if (kind === "details") {
     const record = selectedLoan?.record || loanRecords[0] || {};
-    const nextDue = record.nextDue ? formatDate(record.nextDue) : "Not scheduled";
-    const installment = record.termMonths ? formatUGX((Number(record.requestedAmount || 0) / record.termMonths) || 0) : "UGX 0";
-    return `<div class="grid two-col"><article class="card"><div class="card-title"><h2>Loan Details</h2><span class="pill ${selectedLoan[5] === "Rejected" ? "warn" : "success"}">${selectedLoan[5]}</span></div><div class="summary-band"><div><p class="muted">Principal</p><strong>${selectedLoan[3]}</strong></div><div><p class="muted">Outstanding</p><strong>${formatUGX(Number(record.requestedAmount || 0) * (1 - (Number(record.progressPercent || 0) / 100)))}</strong></div><div><p class="muted">Rate</p><strong>${record.annualRate || 14}%</strong></div></div><h3>Repayment Progress</h3><div class="progress"><span style="width:${selectedLoan[4]}"></span></div><p class="muted">${selectedLoan[4]} repaid - next installment due ${nextDue}</p><div class="form-actions"><button class="primary-button" type="button" data-loan-decision="approve">Approve</button><button class="danger-button" type="button" data-loan-decision="reject">Reject</button></div></article><article class="card"><div class="card-title"><h2>Repayment Schedule</h2></div><div class="loan-schedule">${[0,1,2,3].map((_, i) => `<div class="schedule-item"><span class="status-dot ${i ? "blue" : "warn"}"></span><div><strong>${installment}</strong><br><small>${i ? formatDate(new Date(Date.now() + (i + 1) * 30 * 86400000)) : nextDue}</small></div><span class="pill ${i ? "dark" : "warn"}">${i ? "Upcoming" : "Due"}</span></div>`).join("")}</div></article></div>`;
+    if (!record.id) return '<div class="empty-state">Select a loan from Loan Management to view its details.</div>';
+    const status = record.status || "Pending";
+    const principal = loanPrincipal(record);
+    const repaid = loanRepaid(record);
+    const outstanding = loanOutstanding(record);
+    const progress = loanProgress(record);
+    const nextDue = record.nextDue ? formatDate(record.nextDue) : "Starts after approval";
+    const installment = loanInstallment(record);
+    const schedule = loanScheduleMarkup(record, 4);
+    const decisionActions = status === "Pending" ? '<div class="form-actions"><button class="primary-button" type="button" data-loan-decision="approve">Approve loan</button><button class="danger-button" type="button" data-loan-decision="reject">Reject loan</button></div>' : "";
+    return `<div class="grid two-col"><article class="card"><div class="card-title"><div><p class="eyebrow">${escapeHtml(record.loanNumber)}</p><h2>Loan Details</h2></div><span class="pill ${status === "Rejected" ? "warn" : "success"}">${escapeHtml(status)}</span></div><div class="summary-band"><div><p class="muted">Principal</p><strong>${formatUGX(principal)}</strong></div><div><p class="muted">Repaid</p><strong>${formatUGX(repaid)}</strong></div><div><p class="muted">Outstanding</p><strong>${formatUGX(outstanding)}</strong></div><div><p class="muted">Annual rate</p><strong>${Number(record.annualRate || 0)}%</strong></div></div><div class="loan-meta-grid"><div><p class="muted">Member</p><strong>${escapeHtml(record.memberName)}</strong></div><div><p class="muted">Product</p><strong>${escapeHtml(record.product)}</strong></div><div><p class="muted">Term</p><strong>${Number(record.termMonths || 0)} months</strong></div><div><p class="muted">Next due</p><strong>${escapeHtml(nextDue)}</strong></div><div class="full"><p class="muted">Purpose</p><strong>${escapeHtml(record.purpose || "Not provided")}</strong></div></div><h3>Repayment Progress</h3><div class="progress"><span style="width:${progress}%"></span></div><p class="muted">${progress}% repaid · ${formatUGX(installment)} expected per month</p>${decisionActions}</article><article class="card"><div class="card-title"><h2>Repayment Schedule</h2><span class="pill">${formatUGX(outstanding)} remaining</span></div><div class="loan-schedule">${schedule}</div></article></div>`;
   }
   return `<div class="screen"><article class="table-card"><div class="table-head"><h2 class="section-title">Loan Management</h2>${toolbar("Search loans", ["Loan status", "Product"])}</div>${renderTable(["Loan ID","Member","Purpose","Amount","Progress","Status"], loanRows, "Open")}</article></div>`;
 }
@@ -534,6 +587,26 @@ function transactionDetailsMarkup(record) {
       <strong>${escapeHtml(record.narration || "No narration was added.")}</strong>
     </div>
   </div>`;
+}
+
+function closeTransactionDetailsModal() {
+  document.querySelector("[data-transaction-modal]")?.remove();
+  document.body.classList.remove("modal-open");
+}
+
+function openTransactionDetailsModal(record) {
+  closeTransactionDetailsModal();
+  document.body.insertAdjacentHTML("beforeend", `<div class="transaction-modal-backdrop" data-transaction-modal>
+    <section class="transaction-modal" role="dialog" aria-modal="true" aria-labelledby="transactionModalTitle">
+      <div class="card-title">
+        <div><p class="eyebrow">Live transaction record</p><h2 id="transactionModalTitle">Transaction Details</h2></div>
+        <button class="ghost-button transaction-modal-close" type="button" data-close-transaction-modal aria-label="Close transaction details">×</button>
+      </div>
+      ${transactionDetailsMarkup(record)}
+    </section>
+  </div>`);
+  document.body.classList.add("modal-open");
+  document.querySelector("[data-close-transaction-modal]")?.focus();
 }
 
 function transactionHistoryTable(records) {
@@ -580,8 +653,6 @@ function transactionsScreen() {
     .filter((record) => record.memberId && record.memberName)
     .map((record) => [String(record.memberId), record.memberName]));
   const memberOptions = [...memberMap.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  const selectedRecord = selectedTransaction?.record || null;
-
   return `<div class="screen">
     <article class="table-card transaction-history-card">
       <div class="table-head transaction-table-head">
@@ -624,13 +695,6 @@ function transactionsScreen() {
         </div>
       </div>
       ${transactionHistoryTable(transactionRecords)}
-    </article>
-    <article class="card transaction-details-card">
-      <div class="card-title">
-        <h2>Transaction Details</h2>
-        ${selectedRecord ? '<span class="pill success">Live record</span>' : ""}
-      </div>
-      <div data-transaction-details>${transactionDetailsMarkup(selectedRecord)}</div>
     </article>
   </div>`;
 }
@@ -690,8 +754,8 @@ function memberDashboard() {
   const { member, accounts, transactions: memberTransactions, loans } = memberPortalRecords();
   const transactionRows = memberTransactionRows(memberTransactions);
   const savings = accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0);
-  const loan = loans.find((item) => String(item.status || "").toLowerCase() !== "rejected") || {};
-  const outstanding = Number(loan.requestedAmount || 0) * (1 - (Number(loan.progressPercent || 0) / 100));
+  const loan = loans.find((item) => !["rejected", "closed"].includes(String(item.status || "").toLowerCase())) || loans[0] || {};
+  const outstanding = loanOutstanding(loan);
   return `<div class="screen">
     <section class="grid stats-grid">
       ${moneyStat("My Savings", formatUGX(savings, true), "Across my accounts", icons.wallet)}
@@ -718,11 +782,12 @@ function memberSavings() {
 
 function memberLoans() {
   const { loans } = memberPortalRecords();
-  const loan = loans[0] || {};
-  const progress = Number(loan.progressPercent || 0);
-  const outstanding = Number(loan.requestedAmount || 0) * (1 - progress / 100);
-  const installment = loan.termMonths ? formatUGX(Number(loan.requestedAmount || 0) / loan.termMonths) : "UGX 0";
-  return `<div class="screen"><section class="grid three-col">${moneyStat("Loan Status", loan.status || "No loan", "Live status", icons.shield)}${moneyStat("Outstanding", formatUGX(outstanding), `${progress}% repaid`, icons.loan)}${moneyStat("Next Due", loan.nextDue ? formatDate(loan.nextDue) : "N/A", installment, icons.receipt)}</section><article class="portal-card"><div class="card-title"><h2>Repayment Progress</h2><span class="pill success">On time</span></div><div class="progress"><span style="width:${progress}%"></span></div><p class="muted">${progress}% completed on ${loan.product || "current"} loan.</p></article><article class="portal-card"><div class="card-title"><h2>Schedule</h2></div><div class="loan-schedule">${[0,1,2].map((_, i) => `<div class="schedule-item"><span class="status-dot ${i ? "blue" : "warn"}"></span><div><strong>${installment}</strong><br><small>${i ? formatDate(new Date(Date.now() + (i + 1) * 30 * 86400000)) : (loan.nextDue ? formatDate(loan.nextDue) : "N/A")}</small></div><span class="pill ${i ? "dark" : "warn"}">${i ? "Upcoming" : "Due"}</span></div>`).join("")}</div></article></div>`;
+  const loan = loans.find((item) => !["rejected", "closed"].includes(String(item.status || "").toLowerCase())) || loans[0] || {};
+  const progress = loanProgress(loan);
+  const outstanding = loanOutstanding(loan);
+  const installment = formatUGX(loanInstallment(loan));
+  const repaymentState = loan.status === "Closed" ? "Fully repaid" : loan.status === "Performing" ? "Repaying" : loan.status || "No loan";
+  return `<div class="screen"><section class="grid three-col">${moneyStat("Loan Status", repaymentState, "Live status", icons.shield)}${moneyStat("Outstanding", formatUGX(outstanding), `${progress}% repaid`, icons.loan)}${moneyStat("Next Due", loan.nextDue ? formatDate(loan.nextDue) : "N/A", installment, icons.receipt)}</section><article class="portal-card"><div class="card-title"><h2>Repayment Progress</h2><span class="pill ${loan.status === "Rejected" ? "warn" : "success"}">${escapeHtml(loan.status || "No loan")}</span></div><div class="progress"><span style="width:${progress}%"></span></div><p class="muted">${progress}% completed on ${escapeHtml(loan.product || "current")} loan. ${formatUGX(outstanding)} remains.</p></article><article class="portal-card"><div class="card-title"><h2>Schedule</h2></div><div class="loan-schedule">${loanScheduleMarkup(loan, 3)}</div></article></div>`;
 }
 
 function memberProfilePortal() {
@@ -844,7 +909,7 @@ function syncAppData(data) {
     loan.memberName,
     loan.product,
     formatUGX(loan.requestedAmount || loan.approvedAmount || 0),
-    `${loan.progressPercent || 0}%`,
+    `${loanProgress(loan)}%`,
     loan.status || "Watch",
   ], loan));
 
@@ -857,7 +922,7 @@ function syncAppData(data) {
   ], staff));
 
   selectedTransaction = transactions[0] || null;
-  selectedLoan = loanRows[0] || selectedLoan;
+  selectedLoan = loanRows[0] || null;
 }
 
 async function refreshAppData() {
@@ -1294,44 +1359,69 @@ async function saveMember(button) {
 
 async function submitLoan(button) {
   const form = button.closest("form");
+  form.classList.add("was-validated");
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    showToast("Complete all required loan application fields.");
+    return;
+  }
   const data = new FormData(form);
   const memberRecord = memberRecords.find((member) => String(member.id) === String(data.get("member_id")));
   const member = memberRecord?.name || form.querySelector('[name="member_id"]').selectedOptions[0]?.textContent.split(" - ")[0] || "Member";
   const product = data.get("product");
-  const amount = `UGX ${data.get("amount") || "0"}`;
+  const numericAmount = Number(String(data.get("amount") || "").replace(/[^0-9.]/g, ""));
+  const termMonths = parseTermMonths(data.get("term"));
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    showToast("Enter a requested loan amount greater than zero.");
+    form.querySelector('[name="amount"]')?.focus();
+    return;
+  }
+  button.disabled = true;
   if (authToken && memberRecord?.id) {
     try {
       const result = await apiRequest("/api/loans", {
         token: authToken,
         memberId: memberRecord.id,
         product,
-        amount: data.get("amount"),
-        term: data.get("term"),
+        amount: numericAmount,
+        term: termMonths,
         purpose: data.get("purpose"),
       });
       syncAppData(result);
       showToast(`Loan application submitted for ${member}.`);
+      form.reset();
+      form.classList.remove("was-validated");
       setAdminScreen("loanApproval");
       return;
     } catch (error) {
       showToast(error.message || "Loan application could not be submitted.");
       return;
+    } finally {
+      button.disabled = false;
     }
   }
-  const loan = [nextRef("LN"), member, product, amount, "0%", "Watch"];
+  const loan = [nextRef("LN"), member, product, formatUGX(numericAmount), "0%", "Pending"];
   loanRows.unshift(loan);
   selectedLoan = loan;
+  button.disabled = false;
   showToast(`Loan application ${loan[0]} submitted for review.`);
+  form.reset();
+  form.classList.remove("was-validated");
   setAdminScreen("loanApproval");
 }
 
 async function decideLoan(decision) {
   const loanId = selectedLoan?.record?.id;
+  const loanNumber = selectedLoan?.record?.loanNumber || selectedLoan?.[0] || "Loan";
+  if (selectedLoan?.record && selectedLoan.record.status !== "Pending") {
+    showToast("Only pending loan applications can be approved or rejected.");
+    return;
+  }
   if (authToken && loanId) {
     try {
       const result = await apiRequest("/api/loans/decision", { token: authToken, loanId, decision });
       syncAppData(result);
-      showToast(`Loan ${selectedLoan[0]} ${decision === "approve" ? "approved" : "rejected"}.`);
+      showToast(`${loanNumber} ${decision === "approve" ? "approved and scheduled" : "rejected"}.`);
       setAdminScreen("loanApproval");
       return;
     } catch (error) {
@@ -1340,7 +1430,7 @@ async function decideLoan(decision) {
     }
   }
   selectedLoan[5] = decision === "approve" ? "Performing" : "Rejected";
-  selectedLoan[4] = decision === "approve" ? "5%" : selectedLoan[4];
+  selectedLoan[4] = "0%";
   showToast(`Loan ${selectedLoan[0]} ${decision === "approve" ? "approved" : "rejected"}.`);
   setAdminScreen("loanApproval");
 }
@@ -1698,6 +1788,11 @@ document.addEventListener("click", (event) => {
   const openTransactionButton = event.target.closest("[data-open-transaction]");
   const applyTransactionFiltersButton = event.target.closest("[data-apply-transaction-filters]");
   const resetTransactionFiltersButton = event.target.closest("[data-reset-transaction-filters]");
+  const closeTransactionModalButton = event.target.closest("[data-close-transaction-modal]");
+  if (closeTransactionModalButton || (event.target.matches("[data-transaction-modal]"))) {
+    closeTransactionDetailsModal();
+    return;
+  }
   if (openTransactionButton) {
     const record = transactionRecords.find((item) => String(item.id) === String(openTransactionButton.dataset.openTransaction));
     if (record) {
@@ -1709,11 +1804,9 @@ document.addEventListener("click", (event) => {
         formatDate(record.date),
         record.status || "Completed",
       ], record);
-      document.querySelector("[data-transaction-details]").innerHTML = transactionDetailsMarkup(record);
-      document.querySelector(".transaction-details-card .card-title")?.querySelector(".pill")?.remove();
-      document.querySelector(".transaction-details-card .card-title")?.insertAdjacentHTML("beforeend", '<span class="pill success">Live record</span>');
       document.querySelectorAll("[data-transaction-row]").forEach((row) => row.classList.remove("is-selected"));
       openTransactionButton.closest("tr")?.classList.add("is-selected");
+      openTransactionDetailsModal(record);
       showToast(`Opened transaction ${record.reference}.`);
     }
   }
@@ -1874,6 +1967,12 @@ document.addEventListener("submit", (event) => {
 document.addEventListener("mouseover", (event) => {
   const featureCard = event.target.closest("[data-feature]");
   if (featureCard) setFeatureDetail(featureCard);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.querySelector("[data-transaction-modal]")) {
+    closeTransactionDetailsModal();
+  }
 });
 
 document.querySelector("#menuButton").addEventListener("click", () => appFrame.classList.toggle("menu-open"));
