@@ -485,20 +485,27 @@ function loanPrincipal(loan) {
 }
 
 function loanRepaid(loan) {
-  return Math.min(loanPrincipal(loan), Number(loan?.repaidAmount || 0));
+  return Math.min(loanTotalPayable(loan), Number(loan?.repaidAmount || 0));
+}
+
+function loanTotalPayable(loan) {
+  const principal = loanPrincipal(loan);
+  const rate = Math.max(0, Number(loan?.annualRate || 0));
+  const months = Math.max(0, Number(loan?.termMonths || 0));
+  return principal + ((principal * rate * months) / 1200);
 }
 
 function loanOutstanding(loan) {
-  return Math.max(0, loanPrincipal(loan) - loanRepaid(loan));
+  return Math.max(0, loanTotalPayable(loan) - loanRepaid(loan));
 }
 
 function loanProgress(loan) {
-  const principal = loanPrincipal(loan);
-  return principal > 0 ? Math.min(100, Math.round((loanRepaid(loan) / principal) * 100)) : 0;
+  const total = loanTotalPayable(loan);
+  return total > 0 ? Math.min(100, Math.round((loanRepaid(loan) / total) * 100)) : 0;
 }
 
 function loanInstallment(loan) {
-  return Number(loan?.installmentAmount || (loanPrincipal(loan) / Math.max(1, Number(loan?.termMonths || 1))) || 0);
+  return Number(loan?.installmentAmount || (loanTotalPayable(loan) / Math.max(1, Number(loan?.termMonths || 1))) || 0);
 }
 
 function addMonths(value, months) {
@@ -534,6 +541,7 @@ function loansScreen(kind) {
         <div class="field"><label>Loan product</label><select name="product" required><option value="" selected disabled></option><option>Business Expansion</option><option>Agriculture</option><option>Education</option><option>Emergency</option></select></div>
         <div class="field"><label>Requested amount</label><input name="amount" inputmode="decimal" autocomplete="off" required /></div>
         <div class="field"><label>Repayment term</label><select name="term" required><option value="" selected disabled></option><option value="6">6 months</option><option value="12">12 months</option><option value="18">18 months</option><option value="24">24 months</option><option value="36">36 months</option></select></div>
+        <div class="field"><label>Annual interest rate (%)</label><input name="interest_rate" type="number" min="0" max="100" step="0.01" inputmode="decimal" autocomplete="off" required /></div>
         <div class="field full"><label>Purpose</label><textarea name="purpose" required></textarea></div>
         <div class="form-actions full"><button class="primary-button" type="button" data-submit-loan>Submit application</button><button class="ghost-button" type="button" data-attach-documents>Attach documents</button></div>
       </form></article></div>`;
@@ -1371,9 +1379,15 @@ async function submitLoan(button) {
   const product = data.get("product");
   const numericAmount = Number(String(data.get("amount") || "").replace(/[^0-9.]/g, ""));
   const termMonths = parseTermMonths(data.get("term"));
+  const interestRate = Number(data.get("interest_rate"));
   if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
     showToast("Enter a requested loan amount greater than zero.");
     form.querySelector('[name="amount"]')?.focus();
+    return;
+  }
+  if (!Number.isFinite(interestRate) || interestRate < 0 || interestRate > 100) {
+    showToast("Enter an annual interest rate between 0% and 100%.");
+    form.querySelector('[name="interest_rate"]')?.focus();
     return;
   }
   button.disabled = true;
@@ -1385,6 +1399,7 @@ async function submitLoan(button) {
         product,
         amount: numericAmount,
         term: termMonths,
+        interestRate,
         purpose: data.get("purpose"),
       });
       syncAppData(result);

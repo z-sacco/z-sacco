@@ -66,13 +66,15 @@ async function waitForServer() {
   assert.equal(data.accounts.find((item) => item.id === account.id).balance, 200000);
   data = await request("/api/transactions", { token: login.token, accountId: account.id, transactionType: "Share contribution", amount: 25000, method: "Mobile Money" });
   assert.equal(data.accounts.find((item) => item.id === account.id).balance, 225000, "Share contributions increase the selected account balance");
-  data = await request("/api/loans", { token: login.token, memberId: member.id, product: "Development Loan", amount: 1000000, term: 12, purpose: "Business" });
+  data = await request("/api/loans", { token: login.token, memberId: member.id, product: "Development Loan", amount: 1000000, term: 12, interestRate: 12, purpose: "Business" });
   const loan = data.loans.find((item) => item.memberId === member.id);
   data = await request("/api/loans/decision", { token: login.token, loanId: loan.id, decision: "approve" });
   const approvedLoan = data.loans.find((item) => item.id === loan.id);
   assert.equal(approvedLoan.status, "Performing");
   assert.equal(approvedLoan.progressPercent, 0, "Approval does not pretend that a repayment has already happened");
   assert.equal(approvedLoan.repaidAmount, 0);
+  assert.equal(approvedLoan.annualRate, 12, "The entered annual interest rate is preserved");
+  assert.equal(approvedLoan.installmentAmount, 93334, "Installments include the entered interest rate");
   assert.ok(approvedLoan.nextDue, "Approval creates the first repayment due date");
   await assert.rejects(
     request("/api/loans/decision", { token: login.token, loanId: loan.id, decision: "approve" }),
@@ -82,9 +84,9 @@ async function waitForServer() {
   assert.equal(data.accounts.find((item) => item.id === account.id).balance, 225000, "Loan repayments do not change savings balances");
   const repaidLoan = data.loans.find((item) => item.id === loan.id);
   assert.equal(repaidLoan.repaidAmount, 100000, "Loan repayments use exact amounts");
-  assert.equal(repaidLoan.progressPercent, 10, "Repayment progress is calculated from the exact principal");
+  assert.equal(repaidLoan.progressPercent, 9, "Repayment progress is calculated from principal plus interest");
   await assert.rejects(
-    request("/api/transactions", { token: login.token, accountId: account.id, transactionType: "Loan repayment", loanId: loan.id, amount: 1000000, method: "Cash" }),
+    request("/api/transactions", { token: login.token, accountId: account.id, transactionType: "Loan repayment", loanId: loan.id, amount: 1100000, method: "Cash" }),
     /exceeds the outstanding loan balance/,
   );
   const memberLogin = await request("/api/auth/login", { role: "member", identity: member.memberNumber, password: "MemberPass12!" });
